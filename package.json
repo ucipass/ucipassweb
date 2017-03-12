@@ -1,0 +1,30 @@
+{
+  "name": "express4",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "archiver": "^1.3.0",
+    "body-parser": "^1.17.1",
+    "cookie-parser": "^1.4.3",
+    "express": "^4.15.2",
+    "express-session": "^1.15.1",
+    "geoip-lite": "^1.2.0",
+    "moment": "^2.17.1",
+    "morgan": "^1.8.1",
+    "passport": "^0.3.2",
+    "passport-local": "^1.0.0",
+    "path": "^0.12.7",
+    "pug": "^2.0.0-beta11",
+    "request-ip": "^2.0.1",
+    "serve-favicon": "^2.4.1",
+    "sessionstore": "^1.2.18",
+    "sqlite3": "^3.1.8",
+    "winston": "^2.3.1"
+  },
+  "devDependencies": {
+    "mocha": "^3.1.2"
+  }
+}

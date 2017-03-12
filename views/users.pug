@@ -1,0 +1,82 @@
+extends layout.pug
+block content
+	// CDN Datatables
+	link(rel='stylesheet',			href='/cdn/dataTables-1.10.12.bootstrap.min.css')
+	script(type='text/javascript',	src='/cdn/jquery.dataTables-1.10.12.min.js')
+	script(type='text/javascript',	src='/cdn/dataTables-1.10.12.bootstrap.min.js')
+	// CDN SELECT2
+	link(rel='stylesheet',			href="/cdn/select2-4.0.0.min.css")
+	link(rel='stylesheet',			href='/cdn/select2-4.0.0-bootstrap.css')
+	script(							src="/cdn/select2-4.0.0.min.js")
+	// INTERNAL SCRIPTS
+	
+	script(src='/javascripts/dynDatatables.js')
+	script(src='/javascripts/jsondata.js')
+	script(src='/javascripts/users-client.js')
+	script.
+		var username =  '#{user}'; //from jade
+	.container-fluid
+		.row
+			button.btn.btn-primary(style="margin-top:5px; margin-left:5px")#button-modal-add-user Add User
+			button.btn.btn-primary(style="margin-top:5px; margin-left:5px")#button-modal-del-user Delete User
+			button.btn.btn-primary(style="margin-top:5px; margin-left:5px")#button-modal-pwd-user Change Password
+		.row
+			#container1
+			#container2
+	div
+		#modal-add-user.modal.fade(tabindex='-1', role='dialog', aria-labelledby='myModalLabel1', aria-hidden='true', style='display: none;')
+			.modal-dialog
+				.modal-content
+					.modal-header(align="center")
+						h3 Add User
+					.modal-body
+						.form
+							.form-group
+								label(for="inp-add-user") Username
+								input.form-control(type='text', name="inp-add-user", id="inp-add-user", placeholder='Enter Username')
+							.form-group
+								label(for="inp-add-pwd1") Password
+								input.form-control(type='password', name="inp-add-pwd1", id="inp-add-pwd1", placeholder='Password')
+							.form-group
+								label(for="inp-add-pwd2") Confirm Password
+								input.form-control(type='password', name="inp-add-pwd2", id="inp-add-pwd2", placeholder='Confirm Password')
+					.modal-footer
+						button.btn.btn-primary(style="margin-left:5px")#button-modal-add-user-add Add User
+						button.btn.btn-primary(style="margin-left:5px")#button-modal-add-user-clo Close
+	div
+		#modal-del-user.modal.fade(tabindex='-2', role='dialog', aria-labelledby='myModalLabel1', aria-hidden='true', style='display: none;')
+			.modal-dialog
+				.modal-content
+					.modal-header(align="center")
+						h2 Delete User
+					.modal-body
+						label(for="select-user-del") User ID
+						.form
+							.form-group
+								select#select-user-del.select.form-control
+					.modal-footer
+						button.btn.btn-primary(style="margin-left:5px")#button-modal-del-user-del Delete User
+						button.btn.btn-primary(style="margin-left:5px")#button-modal-del-user-clo Close
+	div
+		#modal-pwd-user.modal.fade(tabindex='-3', role='dialog', aria-labelledby='myModalLabel3', aria-hidden='true', style='display: none;')
+			.modal-dialog
+				.modal-content
+					.modal-header(align="center")
+						h2 Change Password
+					.modal-body
+						label(for="select-user-pwd") User ID
+						.form
+							.form-group
+								select#select-user-pwd.select.form-control
+							.form-group
+								label(for="inp-pwd-pwd1") Password
+								input.form-control(type='password', name="inp-pwd-pwd1", id="inp-pwd-pwd1", placeholder='Password')
+							.form-group
+								label(for="inp-pwd-pwd2") Confirm Password
+								input.form-control(type='password', name="inp-pwd-pwd2", id="inp-pwd-pwd2", placeholder='Confirm Password')
+					.modal-footer
+						button.btn.btn-primary(style="margin-left:5px")#button-modal-pwd-user-pwd Change Password
+						button.btn.btn-primary(style="margin-left:5px")#button-modal-pwd-user-clo Close
+
+
+

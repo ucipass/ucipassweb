@@ -1,0 +1,7 @@
+extends layout.pug
+block content
+	.container
+		h1.text-center #{message}
+		if (!user)
+			h1(style="font-family:‘Times New Roman’")#spinner.text-center Login for full access!
+		
