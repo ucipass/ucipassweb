@@ -368,7 +368,7 @@ function write(json){ return new Promise(function(resolve,reject){ // executes s
 	var start = new Date().getTime();
 	json.db.run(sqlstm,function(err){
 		if (err) { 
-			console.log("SQL WRITE ERROR: ", err); 
+			log.error("SQL WRITE ERROR: ", err,sqlstm ); 
 			json.err = err.toString() ; 
 			reject(err); 
 			return;
@@ -424,8 +424,8 @@ function read(json){ return new Promise(function(resolve,reject){ // executes sq
 	})}
 
 function close(json){ return new Promise(function(resolve,reject){ // closes database json.dbname
-	if (!json.db.open){
-		console.log("SQL CLOSE: ALREADY CLOSED OR NEVER OPENED"); 
+	if (!json.db || !json.db.open){
+		log.error("SQL CLOSE: ALREADY CLOSED OR NEVER OPENED"); 
 		if(json.err){ reject(json); return; }
 		else{ resolve(json); return;}
 		}

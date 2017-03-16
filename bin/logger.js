@@ -17,7 +17,7 @@ logger.loggers.add('AUTH', {
 	});
 
 logger.loggers.add('USERS', {
-	console: { level: 'debug', label: "USERS", handleExceptions: true, json: false, colorize: true},
+	console: { level: 'info', label: "USERS", handleExceptions: true, json: false, colorize: true},
 	file:    { level: 'info', label: "USERS", filename: filename, maxsize: 5242880, maxFiles: 5, handleExceptions: true, json: true, colorize: false }
 	});
 

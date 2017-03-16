@@ -1,6 +1,6 @@
-var app     = require('./bin/www.js').app			// express.js
-var server  = require('./bin/www.js').server		// http server to start service at the end
+var app     = require('./bin/www.js').app		// Express.js
 var auth 	= require('./bin/auth.js');			// Authentication middleware using Passport (using "app")
+var users 	= require('./bin/users.js').router;	// Router for User Management
 
 function root(req,res){
 	res.render('index',{
@@ -10,12 +10,11 @@ function root(req,res){
 		redir:req.query.redir });
 	}
 
-app.post('/login' ,auth.login); //Just redirects to either login or original URL
-app.post('/logout',auth.logout); //just redirects to login page
+app.post('/login' ,auth.login);		//Just redirects to login page or original URL based on ?redir=
+app.post('/logout',auth.logout);	//just redirects to login page
 app.get('/login', root);
 app.get('/', auth.alreadyLoggedIn, root);
 
-var users 	= require('./bin/users.js');
 app.use("/users",auth.alreadyLoggedIn,users)
 
 //
