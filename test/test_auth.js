@@ -1,5 +1,4 @@
-//test = require('selenium-webdriver/testing'),
-//webdriver = require('selenium-webdriver');
+// Mocha Test
 
 var fs = require('fs')
 var path = require('path')
@@ -92,7 +91,7 @@ class Users{
 
 describe('Users Database Tests', function(){
 
-  it.only('Init DB File', function(){
+  it('Init DB File', function(){
     var users = new Users(dbfile)
     return users.init()
     .then(db.open)
@@ -106,7 +105,7 @@ describe('Users Database Tests', function(){
     .catch( (e) => {  assert(false) })
     
   });
-  it.only('Create Admin and Test Users', function(){
+  it('Create Admin and Test Users', function(){
     var users = new Users(dbfile)
     return users.init()
     .then(()=> users.create_user("admin","admin"))
@@ -123,7 +122,7 @@ describe('Users Database Tests', function(){
     .catch( (e) => {  assert(false) })
     
   });
-  it.only('Delete Test User', function(){
+  it('Delete Test User', function(){
     var users = new Users(dbfile)
     return users.delete_user("test","test")
     .then(db.open)
@@ -137,32 +136,32 @@ describe('Users Database Tests', function(){
     .catch( (e) => {  assert(false) })
     
   });
-  it.only('Check correct admin password', function(){
+  it('Check correct admin password', function(){
     var users = new Users(dbfile)
     return users.check_password("admin","admin")
     .then( (pass) => { pass.should.equal(true) } )
     .catch( (e) => {  assert(false) })
   });
-  it.only('Check incorrect admin password', function(){
+  it('Check incorrect admin password', function(){
     var users = new Users(dbfile)
     return users.check_password("admin","adminn")
     .then( (pass) => { pass.should.equal(false) } )
     .catch( (e) => {  assert(false) })
   });
-  it.only('Check incorrect username', function(){
+  it('Check incorrect username', function(){
     var users = new Users(dbfile)
     return users.check_password("adminn","adminn")
     .then( (pass) => { pass.should.equal(false) } )
     .catch( (e) => {  assert(false) })
   });
-  it.only('Change Admin User Password', function(){
+  it('Change Admin User Password', function(){
     var users = new Users(dbfile)
     return users.change_password("admin","admin1")
     .then( (json) => users.check_password("admin","admin1") )
     .then( (pass) => { pass.should.equal(true) } )
     .catch( (e) => {  assert(false) })
   });
-  it.only('Delete DB File', function(){
+  it('Delete DB File', function(){
     fs.access(dbfile, fs.constants.R_OK | fs.constants.W_OK, (err) => {
       if (err){
         console.log("ASSERT Exception",e); assert(false,"Exception")
