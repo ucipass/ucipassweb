@@ -1,5 +1,4 @@
-//test = require('selenium-webdriver/testing'),
-//webdriver = require('selenium-webdriver');
+//Mocha Test
 
 var assert = require('assert')
 var fs = require('fs')
