@@ -22,7 +22,7 @@ logger.loggers.add('USERS', {
 	});
 
 logger.loggers.add('SQLITE', {
-	console: { level: 'debug', label: "SQLITE", handleExceptions: true, json: false, colorize: true},
+	console: { level: 'info', label: "SQLITE", handleExceptions: true, json: false, colorize: true},
 	file:    { level: 'info', label: "SQLITE", filename: filename, maxsize: 5242880, maxFiles: 5, handleExceptions: true, json: true, colorize: false }
 	});
 

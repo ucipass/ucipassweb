@@ -325,7 +325,13 @@ function open(json){ return new Promise(function(resolve,reject){ // opens datab
 		loglevel = loglevel ? loglevel : json.dblog; // locally defined loglevel will overwrite the one coming with json
 		json.db = new sqlite3.Database(json.dbname, json.dbro? sqlite3.OPEN_READONLY : (sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE), function(err){
 			if(!json.results){json.results = []} // create array that will hold the results if not already created
-					if (err) { console.log("SQL OPEN ERROR: ", err); json.err = err.toString() ; reject(json); return;}
+					if (err) { 
+					console.log("SQL OPEN ERROR: ", err); 
+					json.err = err.toString() ; 
+					json.err = err.toString() ; 
+					reject(json); 
+					return;
+				}
 			else { 
 				log.debug("SQL OPEN: SUCCESS "+json.dbname); 
 				log.silly(this); 
@@ -615,6 +621,9 @@ exports.insIgnRow	= insIgnRow
 exports.insIgnRows	= insIgnRows
 exports.updateRow	= updateRow
 exports.printLastTable	= printLastTable
+exports.createTable = createTable
+exports.dropTable	= dropTable
+exports.deleteRow	= deleteRow
 
 exports.sReadTable	= sReadTable
 exports.sInsertRow	= sInsertRow
