@@ -362,11 +362,17 @@ function openro(json){ return new Promise(function(resolve,reject){ // opens dat
 	})}
 
 function write(json){ return new Promise(function(resolve,reject){ // executes sql statement(insert,update,create) and appends results to json.results array
-	if (!json.sqlstm) {json.err="No Sql Statement given"; console.log(json.err); reject(json)}
+	if (!json.sqlstm) {json.err="No Sql Statement given"; log.error(json.err); reject(json)}
+	log.silly("SQL STM:",json.sqlstm)
 	var sqlstm = json.sqlstm;
 	var start = new Date().getTime();
 	json.db.run(sqlstm,function(err){
-		if (err) { console.log("SQL WRITE ERROR: ", err); json.err = err.toString() ; reject(err); return;}
+		if (err) { 
+			console.log("SQL WRITE ERROR: ", err); 
+			json.err = err.toString() ; 
+			reject(err); 
+			return;
+		}
 		else { 
 			log.debug("SQL WRITE: SUCCESS "+sqlstm.substring(0,100)+"...");
 			var execTime = new Date().getTime() - start ;
@@ -378,7 +384,7 @@ function write(json){ return new Promise(function(resolve,reject){ // executes s
 	})}
 
 function read(json){ return new Promise(function(resolve,reject){ // executes sql select statment and appends rows to json.results array
-	if (!json.sqlstm) {json.err="No Sql Statement given"; console.log(json.err); reject(json);return}
+	if (!json.sqlstm) {json.err="No Sql Statement given"; log.error(json.err); reject(json);return}
 	var sqlstm = json.sqlstm
 	var header = 1;
 	var columns = [];
