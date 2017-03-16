@@ -12,10 +12,10 @@ function root(req,res){
 
 app.post('/login' ,auth.login);		//Just redirects to login page or original URL based on ?redir=
 app.post('/logout',auth.logout);	//just redirects to login page
-app.get('/login', root);
-app.get('/', auth.alreadyLoggedIn, root);
+app.get( '/login', root);
+app.get( '/', auth.alreadyLoggedIn, root);
 
-app.use("/users",auth.alreadyLoggedIn,users)
+app.use( "/users",auth.alreadyLoggedIn,users)
 
 //
 // CATCH ALL BAD ONE REQUEST
