@@ -26,6 +26,11 @@ logger.loggers.add('SQLITE', {
 	file:    { level: 'info', label: "SQLITE", filename: filename, maxsize: 5242880, maxFiles: 5, handleExceptions: true, json: true, colorize: false }
 	});
 
+logger.loggers.add('GALLERY', {
+	console: { level: 'debug', label: "GALLERY", handleExceptions: true, json: false, colorize: true},
+	file:    { level: 'info', label: "GALLERY", filename: filename, maxsize: 5242880, maxFiles: 5, handleExceptions: true, json: true, colorize: false }
+	});
+
 
 module.exports = logger;
 

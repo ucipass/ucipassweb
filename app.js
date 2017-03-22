@@ -1,7 +1,6 @@
 var app     = require('./bin/www.js').app		// Express.js
 var auth 	= require('./bin/auth.js');			// Authentication middleware using Passport (using "app")
 var users 	= require('./bin/users.js').router;	// Router for User Management
-
 function root(req,res){
 	res.render('index',{
 		title:"Login" ,
