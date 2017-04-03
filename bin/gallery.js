@@ -64,7 +64,7 @@ async function getNewFiles(json){try{
 	log.debug("Total Gallery Files:",galleryFiles.length)
 	// Get all files from SQL Database
 	var sqlFiles = 	await sql.sReadTable(json.dbname,"files")
-	sqlFilesSet = new Set ( sqlFiles.table.map((item,index) => { return path.join(item[1],item[0])}) )
+	var sqlFilesSet = new Set ( sqlFiles.table.map((item,index) => { return path.join(json.galleryDir,item[1],item[0])}) )
 	log.debug("Total SQL Files:", sqlFiles.table.length)
 	var newGalleryFiles = galleryFiles.filter((item,index) => {
 		var fileString = path.join(item[1],item[0])
@@ -217,7 +217,7 @@ function createImageFile(filename, message){
 	var path = require("path");
     var resolve,reject
     var final = new Promise((res,rej)=>{resolve=res,reject=rej})
-    console.log("Creating Image:", filename )
+    log.debug("Creating Image:", filename )
     var j = new Jimp(1024, 768, function (err, image) {
         Jimp.loadFont(Jimp.FONT_SANS_128_WHITE)
         .then(function (font) { 
@@ -226,7 +226,7 @@ function createImageFile(filename, message){
         })
         .then( ()=> { return new Promise((res,rej)=>{
             image.write( filename, (err,data)=> {
-                console.log("Image",filename,"with message:",message,"Created !")
+                log.info("Image",filename,"with message:",message,"Created !")
                 resolve(true)
                 res(true)
             })
@@ -272,7 +272,7 @@ async function processFiles(json){ try {
 
         // See if thumb is in the SQL thumbs table
 		var existingThumbRow = await sql.sReadTable(json.dbname,"thumbs",["hash"], [[true,["hash"],"IS",json.file.hash]])
-		if (existingThumbRow.table.length < 1){
+		if (existingThumbRow.table.length < 1 && json.file.type == "jpg"){
 			var columns = ["hash","thumb"]
 			var hash = json.file.hash
 			var thumb = await getThumb(json.file.buffer)
@@ -281,7 +281,7 @@ async function processFiles(json){ try {
 		}
         // See if hash is in the SQL images table
         var existSqlImageRow = await sql.sReadTable(json.dbname,"images",["hash"], [[true,["hash"],"IS",json.file.hash]])
-		if (existSqlImageRow.table.length < 1){
+		if (existSqlImageRow.table.length < 1 && json.file.type == "jpg"){
 			json.exif = await getExif(json)
 			json.geo = await getLocation(json)
 			//json.file.buffer = null
@@ -323,7 +323,7 @@ exports.getExif        = getExif;
 exports.createImageFile    = createImageFile;
 exports.convertGPS     = convertGPS;
 exports.processFiles    = processFiles;
-
+exports.getLocation    = getLocation;
 /*
 var json = new JSONGallery("../test/gallery","../test/gallery.db")
 new Promise( (resolve,reject) => { fs.unlink(json.dbname, ()=> resolve(1)) } )
