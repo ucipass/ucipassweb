@@ -27,7 +27,7 @@ logger.loggers.add('SQLITE', {
 	});
 
 logger.loggers.add('GALLERY', {
-	console: { level: 'info', label: "GALLERY", handleExceptions: true, json: false, colorize: true},
+	console: { level: 'debug', label: "GALLERY", handleExceptions: true, json: false, colorize: true},
 	file:    { level: 'info', label: "GALLERY", filename: filename, maxsize: 5242880, maxFiles: 5, handleExceptions: true, json: true, colorize: false }
 	});
 

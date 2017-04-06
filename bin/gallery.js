@@ -1,7 +1,8 @@
 var path = require('path')
 var fs = require('fs')
 var crypto = require('crypto');
-var geolib = require('geolib')
+var geolib = require('geolib');
+var moment = require('moment')
 
 var log = require('./logger.js').loggers.get('GALLERY');
 var sql = require('./lib_sqlite.js')
@@ -21,8 +22,8 @@ function JSONGallery(galleryDir,dbname){
 	var galleryDir = path.normalize(galleryDir)
 	var dbname = path.normalize(dbname)
 	this.baseDir	=	path.normalize(path.join( __dirname,".."))
-	this.dbname		=	path.normalize(path.join(this.baseDir, dbname))
-	this.galleryDir	=	path.normalize(path.join(this.baseDir, galleryDir))
+	this.dbname		=	path.normalize(path.join( dbname))
+	this.galleryDir	=	path.normalize(path.join( galleryDir))
 	this.file		=	{ fname: null, fpath: null, fsize: null, ctime: null, mtime: null, hash: null ,type:null, buffer: null}
 	this.image		=	{ type: null, date: null, event: null, desc: null, location: null, cc: null, people:null, rating:null, att:null}
 	this.thumb		=	null ;
@@ -41,7 +42,7 @@ async function initDB(json){ try{
 	await Promise.resolve(json)
 	.then(function(json){ log.info("Database File NOT found creating new one!",json.dbname) ; return json})
 	.then(sql.open(json))
-	.then(sql.stm("CREATE TABLE IF NOT EXISTS files (fname NOT NULL, fpath NOT NULL, fsize NOT NULL ,hash NOT NULL, ctime DATETIME NOT NULL, mtime DATETIME NOT NULL, PRIMARY KEY (fname,fpath)) "))
+	.then(sql.stm("CREATE TABLE IF NOT EXISTS files (fname NOT NULL, fpath NOT NULL, fsize NOT NULL ,hash NOT NULL, ctime DATETIME NOT NULL, mtime DATETIME NOT NULL, active BOOLEAN NOT NULL, PRIMARY KEY (fname,fpath)) "))
 	.then(sql.write)
 	.then(sql.stm("CREATE TABLE IF NOT EXISTS images (hash NOT NULL,type, date DATETIME, event, desc, location, cc, people, rating INTEGER, att, PRIMARY KEY (hash)) "))
 	.then(sql.write)
@@ -60,17 +61,69 @@ async function getNewFiles(json){try{
 
 	// Get all files from gallery
 	var galleryFiles = await f.getFullDirListRecursive(json.galleryDir)
-	var galleryFilesString = galleryFiles.map((item,index) => { return path.join(item[1],item[0])})
+	var galleryFilesStringS = new Set (galleryFiles.map((item,index) => { 
+		return path.join(item[1],item[0])
+	}))
 	log.debug("Total Gallery Files:",galleryFiles.length)
+
 	// Get all files from SQL Database
+	var sqlFilesActive = 0
+	var sqlFilesInactive = 0
 	var sqlFiles = 	await sql.sReadTable(json.dbname,"files")
-	var sqlFilesSet = new Set ( sqlFiles.table.map((item,index) => { return path.join(json.galleryDir,item[1],item[0])}) )
-	log.debug("Total SQL Files:", sqlFiles.table.length)
-	var newGalleryFiles = galleryFiles.filter((item,index) => {
-		var fileString = path.join(item[1],item[0])
-		return !sqlFilesSet.has(fileString)
+	var sqlFilesStrings = new Set([])
+	/*
+	var sqlFilesStrings = new Set ( sqlFiles.table.map((item,index) => {
+		sqlFilesActive++
+		return path.join(json.galleryDir,item[1],item[0],item[2],item[4])
+	}))
+
+	// Find active SQL file entries no longer in Gallery directory
+	/*
+	json.oldSqlFiles = sqlFiles.table.filter((item,index) => {
+		var sqlFile = path.join(json.galleryDir,item[1],item[0])
+		return !galleryFilesStringS.has(sqlFile)
 	})
-	return Promise.resolve(newGalleryFiles)
+
+	*/
+
+	// Compare SQL DB with Gallery directory mark non matching SQL entries inactive and add SQLFileStrings set for comparision
+	for(var i=0 ; i < sqlFiles.table.length ; i++){
+		var sqlFile = sqlFiles.table[i]
+		var sqlFileString = path.join(json.galleryDir,sqlFile[1],sqlFile[0])
+		var filesColumns = ["fname","fpath","fsize","hash","ctime","mtime","active"]
+		var FilesNewRow = sqlFile
+		if(galleryFilesStringS.has(sqlFileString)){
+			sqlFilesStrings.add( path.join(json.galleryDir,sqlFile[1],sqlFile[0],sqlFile[2],sqlFile[4]) )
+			//Sql entry has a corresponding file in Gallery folder
+			if(sqlFile[6] == '1'){
+				//File is already active do nothing
+				sqlFilesActive++
+			}
+			else{
+				//File is inactive so make it active
+				sqlFilesActive++
+				sqlFile[6] = '1'
+				await sql.sInsertRow(json.dbname,"files",filesColumns,FilesNewRow)
+			}
+		}
+		else{
+			//Sql entry has not corresponding file in Gallery folder so make it inactive
+			sqlFilesInactive++
+			sqlFile[6] = '0'
+			await sql.sInsertRow(json.dbname,"files",filesColumns,FilesNewRow)
+		}
+	}
+
+	log.debug("Total SQL Files Active:", sqlFilesActive,"Inactive:" ,sqlFilesInactive)
+
+	// Find new files in Gallery directory not in SQL DB
+	var newGalleryFiles = galleryFiles.filter((item,index) => {
+		var galleryFile = path.join(item[1],item[0],item[2],item[4].toISOString())
+		return !sqlFilesStrings.has(galleryFile)
+	})
+
+	json.newGalleryFiles = newGalleryFiles
+	return Promise.resolve(json)
 
 }catch(err){ log.error(err); return Promise.reject(err) }}
 
@@ -247,27 +300,27 @@ function convertGPS(days, minutes, seconds, direction) {
 		return 0;
 	}
 }
+
 async function processFiles(json){ try {
     var resolve, reject
     var final = new Promise ( (res,rej) => { resolve = res ; reject = rej } )
-    var json = new JSONGallery("test/gallery","test/gallery.db")
+    //var json = new JSONGallery("test/gallery","test/gallery.db")
     await initDB(json)
-	var newGalleryFiles = await getNewFiles(json)
-    // For every new files execute the below code
-    for( x=0 ; x<newGalleryFiles.length ; x++) {
-		log.debug("-------------------------------------------------")
-        var currentFile = newGalleryFiles[x]
+	await getNewFiles(json)
+    for( x=0 ; x<json.newGalleryFiles.length ; x++) {
+		log.silly("-------------------------------------------------")
+        var currentFile = json.newGalleryFiles[x]
         json.file.fname = currentFile[0]
         json.file.fpath = currentFile[1]
         json.file.fsize = currentFile[2]
         json.file.mtime = currentFile[3].toISOString()
         json.file.ctime = currentFile[4].toISOString()
 		json.file.type = json.file.fname.slice((json.file.fname.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase()
-		var filesColumns = ["fname","fpath","fsize","hash","ctime","mtime"]
-		var FilesNewRow = [json.file.fname, path.relative(json.galleryDir,json.file.fpath), json.file.fsize,json.file.hash,json.file.ctime,json.file.mtime]
-        log.info("Processing" ,x+1 ,"of" ,newGalleryFiles.length, path.join(json.file.fpath,json.file.fname) )
+		log.info("Processing" ,x+1 ,"of" ,json.newGalleryFiles.length, path.join(json.file.fpath,json.file.fname) )
 		 // Get HASH and BUFFER for next new file empty buffer before debug
 		json.file = await getHash(json.file)
+		var filesColumns = ["fname","fpath","fsize","hash","ctime","mtime","active"]
+		var FilesNewRow = [json.file.fname, path.relative(json.galleryDir,json.file.fpath), json.file.fsize,json.file.hash,json.file.ctime,json.file.mtime,"1"]
 		await sql.sInsertRow(json.dbname,"files",filesColumns,FilesNewRow)
 
         // See if thumb is in the SQL thumbs table
@@ -284,19 +337,38 @@ async function processFiles(json){ try {
 		if (existSqlImageRow.table.length < 1 && json.file.type == "jpg"){
 			json.exif = await getExif(json)
 			json.geo = await getLocation(json)
-			//json.file.buffer = null
-			var columns = ["hash","type","date","event","desc","location","cc","people","rating","att"]
+			json.file.buffer = null
+			// Date Extraction
+			log.debug("DATE FILE",json.file.ctime)
+			var folderDate = null
+			var potDate1 = path.relative(json.galleryDir,json.file.fpath).split(path.sep)[0].substring(0,4)
+			var potDate2 = path.relative(json.galleryDir,json.file.fpath).split(path.sep)[1].substring(0,10)
+			var potMom1 = moment(potDate1,"YYYY",true)
+			var potMom2 = moment(potDate2,"YYYY-MM-DD",true)
+			if(potMom2.isValid){ 
+				folderDate = potMom2.toISOString()
+			}
+			else{
+				folderDate = potMom1.toISOString()
+			}
+			log.debug("DATE FOLDER",folderDate)
+			var date = json.exif.DateTimeOriginal ? moment(json.exif.DateTimeOriginal,"YYYY:MM:DD hh:mm:ss",true) : moment(json.file.ctime)
+			// Event & Desciprtion Extration
+			var potEvent1 = path.relative(json.galleryDir,json.file.fpath).split(path.sep)[1].substring(11)
+			var potEvent2 = path.relative(json.galleryDir,json.file.fpath).split(path.sep)[1]
+			var event = potEvent1 ?  potEvent1 : potEvent2
+  			var desc = path.join(path.relative(json.galleryDir,json.file.fpath),json.file.fname)
+			// Other Data
 			var hash = json.file.hash
 			var type = json.file.type
-			var date = json.file.ctime
-			var event = json.file.fpath
-			var desc = json.file.fpath
-			var location = json.geo.location
-			var cc = json.geo.cc
+			var location = json.geo.location ? json.geo.location :null
+			var cc = json.geo.cc ? json.geo.cc :null
 			var people = null
-			var rating = null
-			var att = JSON.stringify(json.exif)
-			var newRow = [hash,type,date,event,desc,location,cc,people,rating,att]
+			var rating = "3"
+			var att = JSON.stringify( { exif:json.exif , folderDate:folderDate } )
+			// Write data to SQL
+			var columns = ["hash","type","date","event","desc","location","cc","people","rating","att"]
+			var newRow = [hash,type,date.toISOString(),event,desc,location,cc,people,rating,att]
 			await sql.sInsertRow(json.dbname,"images",columns,newRow)
 		}
 		json.file.buffer = null
