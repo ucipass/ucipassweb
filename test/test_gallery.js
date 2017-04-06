@@ -212,7 +212,7 @@ describe.only('Gallery Full Test', function(){
         })   
     });
        
-    it.skip('ProcessFiles - GENERATE testfile4 twice testfile4 and testfile5', async function(){
+    it('ProcessFiles - GENERATE testfile4 twice testfile4 and testfile5', async function(){
         var json = new gallery.JSONGallery(galleryDir,galleryDB)
         await gallery.createImageFile(testfile4,"TESTFILE4")
         await f.copy(testfile4,testfile5)
