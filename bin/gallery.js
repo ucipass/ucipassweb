@@ -9,7 +9,6 @@ var sql = require('./lib_sqlite.js')
 var f = require("./lib_files.js")
 var JSONData = require('./jsondata.js');
 
-
 var baseDir     = path.normalize(path.join( __dirname,".."))
 var galleryDir  = path.normalize(path.join(   baseDir, "gallery/files"));
 var dbname      = path.normalize(path.join(   baseDir, "db/gallery.db"));
@@ -71,20 +70,6 @@ async function getNewFiles(json){try{
 	var sqlFilesInactive = 0
 	var sqlFiles = 	await sql.sReadTable(json.dbname,"files")
 	var sqlFilesStrings = new Set([])
-	/*
-	var sqlFilesStrings = new Set ( sqlFiles.table.map((item,index) => {
-		sqlFilesActive++
-		return path.join(json.galleryDir,item[1],item[0],item[2],item[4])
-	}))
-
-	// Find active SQL file entries no longer in Gallery directory
-	/*
-	json.oldSqlFiles = sqlFiles.table.filter((item,index) => {
-		var sqlFile = path.join(json.galleryDir,item[1],item[0])
-		return !galleryFilesStringS.has(sqlFile)
-	})
-
-	*/
 
 	// Compare SQL DB with Gallery directory mark non matching SQL entries inactive and add SQLFileStrings set for comparision
 	for(var i=0 ; i < sqlFiles.table.length ; i++){
@@ -264,6 +249,65 @@ function getLocation(json){try{
 
 }catch(err){ log.error(err); return Promise.reject(err) }}
 
+function getDate(json){
+	var curDate = null
+	// Extract file cdate
+	var dateFile = {year: null, month: null, day: null, hour:null, minute:null, second:null}
+	curDate = moment(json.file.cdate)
+	dateFile.year = curDate.year().toString()
+	dateFile.month = (curDate.month()+1).toString()
+	dateFile.day = curDate.date().toString()
+	dateFile.hour = curDate.hour().toString()
+	dateFile.minute = curDate.minute().toString()
+	dateFile.second = curDate.second().toString()
+	log.debug("DATE FILE",dateFile)
+	
+	// Extract folder dates
+	var dateFolder = {year: null, month: null, day: null}
+	var curPath = path.relative(json.galleryDir,json.file.fpath).split(path.sep)
+	if (curPath.length > 0){
+		curDate = moment(curPath[0].substring(0,4),"YYYY",true)
+		if (curDate.isValid()){
+			dateFolder.year = curDate.year().toString()
+			if(curPath.length > 1){
+				curDate = moment(curPath[1].substring(0,7),"YYYY-MM",true)
+				if (curDate.isValid()){
+					dateFolder.month = (curDate.month()+1).toString()
+					curDate = moment(curPath[1].substring(0,10),"YYYY-MM-DD",true)
+					if (curDate.isValid()){
+						dateFolder.day	 = curDate.date().toString()
+					}
+				}
+			}
+		}
+	}
+	json.exif.dateFolder = dateFolder
+	log.debug("DATE FOLDER:",dateFolder)
+
+	// Extract EXIF dates
+	var dateExif = {year: null, month: null, day: null, hour:null, minute:null, second:null}
+	curDate = (json.exif && json.exif.DateTimeOriginal) ? moment(json.exif.DateTimeOriginal,"YYYY:MM:DD hh:mm:ss",true) : null
+	if(curDate && curDate.isValid()){
+		dateExif.year = curDate.year().toString()
+		dateExif.month = (curDate.month()+1).toString()
+		dateExif.day = curDate.date().toString()
+		dateExif.hour = curDate.hour().toString()
+		dateExif.minute = curDate.minute().toString()
+		dateExif.second = curDate.second().toString()
+	}
+	log.debug("DATE EXIF:",dateExif)
+	var fYear = dateFolder.year ? dateFolder.year : (dateExif.year ? dateExif.year : dateFile.year )
+	var fMonth = dateFolder.month ? dateFolder.month : (dateExif.month ? dateExif.month : dateFile.month )
+	var fDay = dateFolder.day ? dateFolder.day : (dateExif.day ? dateExif.day : dateFile.day )
+	var fHour = dateExif.hour ? dateExif.hour : dateFile.hour
+	var fMinute = dateExif.minute ? dateExif.minute : dateFile.minute
+	var fSecond = dateExif.second ? dateExif.second : dateFile.second
+	var fDate = fYear+"-"+fMonth+"-"+fDay+" "+fHour+":"+fMinute+":"+fSecond
+	curDate = moment(fDate, 'YYYY-M-D hh:mm:ss')
+	log.debug("DATE FINAL:",curDate.format())
+	return curDate
+}
+
 function createImageFile(filename, message){try{
 	var Jimp = require("jimp");
 	var path = require("path");
@@ -306,7 +350,7 @@ async function processFiles(json){ try {
     await initDB(json)
 	await getNewFiles(json)
     for( x=0 ; x<json.newGalleryFiles.length ; x++) {
-		log.silly("-------------------------------------------------")
+
         var currentFile = json.newGalleryFiles[x]
         json.file.fname = currentFile[0]
         json.file.fpath = currentFile[1]
@@ -316,6 +360,7 @@ async function processFiles(json){ try {
 		json.file.type = json.file.fname.slice((json.file.fname.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase()
 		log.info("Processing" ,x+1 ,"of" ,json.newGalleryFiles.length, path.join(json.file.fpath,json.file.fname) )
 		 // Get HASH and BUFFER for next new file empty buffer before debug
+
 		json.file = await getHash(json.file)
 		var filesColumns = ["fname","fpath","fsize","hash","ctime","mtime","active"]
 		var FilesNewRow = [json.file.fname, path.relative(json.galleryDir,json.file.fpath), json.file.fsize,json.file.hash,json.file.ctime,json.file.mtime,"1"]
@@ -336,86 +381,30 @@ async function processFiles(json){ try {
 			json.exif = await getExif(json)
 			json.geo = await getLocation(json)
 			json.file.buffer = null
-			var curDate = null
-			// Extract file cdate
-			var dateFile = {year: null, month: null, day: null, hour:null, minute:null, second:null}
-			curDate = moment(json.file.cdate)
-			dateFile.year = curDate.year().toString()
-			dateFile.month = (curDate.month()+1).toString()
-			dateFile.day = curDate.date().toString()
-			dateFile.hour = curDate.hour().toString()
-			dateFile.minute = curDate.minute().toString()
-			dateFile.second = curDate.second().toString()
-			log.debug("DATE FILE",dateFile)
-			
-			// Extract folder dates
-			var dateFolder = {year: null, month: null, day: null}
-			var curPath = path.relative(json.galleryDir,json.file.fpath).split(path.sep)
-			if (curPath.length > 0){
-				curDate = moment(curPath[0].substring(0,4),"YYYY",true)
-				if (curDate.isValid()){
-					dateFolder.year = curDate.year().toString()
-					if(curPath.length > 1){
-						curDate = moment(curPath[1].substring(0,7),"YYYY-MM",true)
-						if (curDate.isValid()){
-							dateFolder.month = (curDate.month()+1).toString()
-							curDate = moment(curPath[1].substring(0,10),"YYYY-MM-DD",true)
-							if (curDate.isValid()){
-								dateFolder.day	 = curDate.date().toString()
-							}
-						}
-					}
-				}
-			}
-			log.debug("DATE FOLDER:",dateFolder)
 
-			// Extract EXIF dates
-			var dateExif = {year: null, month: null, day: null, hour:null, minute:null, second:null}
-			curDate = (json.exif && json.exif.DateTimeOriginal) ? moment(json.exif.DateTimeOriginal,"YYYY:MM:DD hh:mm:ss",true) : null
-			if(curDate && curDate.isValid()){
-				dateExif.year = curDate.year().toString()
-				dateExif.month = (curDate.month()+1).toString()
-				dateExif.day = curDate.date().toString()
-				dateExif.hour = curDate.hour().toString()
-				dateExif.minute = curDate.minute().toString()
-				dateExif.second = curDate.second().toString()
-			}
-			log.debug("DATE EXIF:",dateExif)
-			var fYear = dateFolder.year ? dateFolder.year : (dateExif.year ? dateExif.year : dateFile.year )
-			var fMonth = dateFolder.month ? dateFolder.month : (dateExif.month ? dateExif.month : dateFile.month )
-			var fDay = dateFolder.day ? dateFolder.day : (dateExif.day ? dateExif.day : dateFile.day )
-			var fHour = dateExif.hour ? dateExif.hour : dateFile.hour
-			var fMinute = dateExif.minute ? dateExif.minute : dateFile.minute
-			var fSecond = dateExif.second ? dateExif.second : dateFile.second
-			var fDate = fYear+"-"+fMonth+"-"+fDay+" "+fHour+":"+fMinute+":"+fSecond
-			curDate = moment(fDate, 'YYYY-M-D hh:mm:ss')
-			log.debug("DATE FINAL:",curDate.format())
-			// Event & Desciprtion Extration
-			var rpath = path.relative(json.galleryDir,json.file.fpath).split(path.sep)
-			var event = rpath.length > 1 ?  rpath[1] : rpath[0]
-			log.debug("DATE EVENT:",event)
-  			var desc = path.join(path.relative(json.galleryDir,json.file.fpath),json.file.fname)
-			// Other Data
 			var hash = json.file.hash
 			var type = json.file.type
+			var curDate = getDate(json)
+			var rpath = path.relative(json.galleryDir,json.file.fpath).split(path.sep)
+			var event = rpath.length > 1 ?  rpath[1] : rpath[0]
+  			var desc = path.join(path.relative(json.galleryDir,json.file.fpath),json.file.fname)
 			var location = json.geo.location ? json.geo.location :null
 			var cc = json.geo.cc ? json.geo.cc :null
 			var people = null
 			var rating = "0"
-			var att = JSON.stringify( { exif:json.exif  , "dateFolder":dateFolder ,  "dateFile":dateFile} )
+			var att = JSON.stringify( { exif:json.exif } )
 			// Write data to SQL
 			var columns = ["hash","type","date","event","desc","location","cc","people","rating","att"]
 			var newRow = [hash,type,curDate.format(),event,desc,location,cc,people,rating,att]
 			await sql.sInsertRow(json.dbname,"images",columns,newRow)
 		}
 		json.file.buffer = null
-		}
+	}
+	if( json.newGalleryFiles.length == 0 ){log.info("No new files to process!")}
+	else{log.info("No more files to process!")}
 	resolve(true)
     return final
-}catch(err){ 
-    log.error(err); 
-    return Promise.reject(err) 
-}}
+}catch(err){ log.error(err); return Promise.reject(err) }}
 
 exports.JSONGallery = JSONGallery;
 exports.initDB          = initDB;

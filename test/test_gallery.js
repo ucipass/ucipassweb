@@ -21,6 +21,21 @@ describe('Gallery Unit Tests', function(){
 
     before("Setting Up Test Database and Directories",async function(){
         var json = new gallery.JSONGallery(galleryDir,galleryDB)
+        mkdirp.sync(path.dirname(testfile1))   
+        mkdirp.sync(path.dirname(testfile2))   
+        mkdirp.sync(path.dirname(testfile3)) 
+        mkdirp.sync(path.dirname(testfile4)) 
+        mkdirp.sync(path.dirname(testfile5)) 
+        if( ! await f.isFile(testfile1)) { 
+            await f.copy( path.join( galleryDir,"..",path.basename(testfile1)) , testfile1 )
+        }
+        if( ! await f.isFile(testfile2)) {
+            f.copy( path.join( galleryDir,"..",path.basename(testfile2)) , testfile2  )
+        }
+        if( ! await f.isFile(testfile3)) { 
+            f.copy( path.join( galleryDir,"..",path.basename(testfile3)) , testfile3  )
+        }
+
         var files = await f.getFullDirListRecursive(galleryDir)
         for(var i=0 ; i < files.length ; i++){
             var file = path.join(files[i][1],files[i][0])
@@ -33,20 +48,7 @@ describe('Gallery Unit Tests', function(){
                 console.log("Deleted:",file)
             }
         }
-        /*
-        mkdirp.sync(galleryDir)   
-        mkdirp.sync(galleryDir1)   
-        mkdirp.sync(galleryDir2)
-        if (!fs.existsSync(testfile1)) {
-            fs.createReadStream(galleryFile1).pipe(fs.createWriteStream(testfile1));
-        }
-        if (!fs.existsSync(testfile2)) {
-            fs.createReadStream(galleryFile2).pipe(fs.createWriteStream(testfile2));
-        }
-        if (!fs.existsSync(testfile3)) {
-            fs.createReadStream(galleryFile3).pipe(fs.createWriteStream(testfile3));
-        }
-        */
+
         return gallery.initDB(json)
         .then(sql.open)
         .then(sql.stm("delete from files"))
@@ -70,7 +72,6 @@ describe('Gallery Unit Tests', function(){
 
 
     })
-
     it('Test Init DB File', async function(){
         var json = new gallery.JSONGallery( galleryDir, path.join(galleryDir,"..","gallery-init.db") )
         return gallery.initDB(json)
@@ -237,7 +238,7 @@ describe.only('Gallery Full Test', function(){
         })   
     });
 
-    it.skip('ProcessFiles - Delete testfile5 ', async function(){
+    it('ProcessFiles - Delete testfile5 ', async function(){
         var json = new gallery.JSONGallery(galleryDir,galleryDB)
         await f.unlink(testfile5)
         await gallery.processFiles(json)
@@ -261,7 +262,7 @@ describe.only('Gallery Full Test', function(){
         })   
     });
 
-    it.skip('ProcessFiles - COPY testfile4 as testfile5', async function(){
+    it('ProcessFiles - COPY testfile4 as testfile5', async function(){
         var json = new gallery.JSONGallery(galleryDir,galleryDB)
         await f.copy(testfile4,testfile5)
         await gallery.processFiles(json)
@@ -287,7 +288,7 @@ describe.only('Gallery Full Test', function(){
 
 })
 
-describe('Gallery Test Directory', function(){
+describe.skip('Gallery Test Directory', function(){
     var galleryDB = path.join(__dirname,"../test/gallery/realgallery.db")
     var galleryDir = path.join("/mnt/2016")
 
