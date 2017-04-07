@@ -7,87 +7,52 @@ var should = require('chai').should();
 var sql = require('../bin/lib_sqlite.js')
 var f = require('../bin/lib_files.js')
 
-
 describe('Gallery Unit Tests', function(){
 
     var galleryDB = path.join(__dirname,"../test/gallery/gallery.db")
     var galleryDir = path.join(__dirname,"../test/gallery/files")
 
-    var testfile1 = path.join(galleryDir,"dir1/usa.jpg")
-    var testfile2 = path.join(galleryDir,"dir1/spain.jpg")
-    var testfile3 = path.join(galleryDir,"dir1/nolocation.JPG")
-    var testfile4 = path.join(galleryDir,"dir2/004.jpg")
-    var testfile5 = path.join(galleryDir,"dir2/005.jpg")
-
-    before("Setting Up Test Database and Directories",async function(){
-        var json = new gallery.JSONGallery(galleryDir,galleryDB)
+    var testfile1 = path.join(galleryDir,"dir1/1.jpg")
+    var testfile2 = path.join(galleryDir,"dir2/2.jpg")
+    var testfile3 = path.join(galleryDir,"dir3/3.jpg")
+    var testfile4 = path.join(galleryDir,"dir4/4.jpg")
+    var testfile5 = path.join(galleryDir,"dir5/5.jpg")
+    
+    before("Deleting and Setting Directories Only", async function(){
+        try{
+            var files = await f.getFullDirListRecursive(galleryDir)
+            if(files.length <20 && files.length > 1) {
+                t = await f.rmdir(galleryDir)
+            }
+                
+        }catch(e){
+            console.log("nothing to do")
+        }
         mkdirp.sync(path.dirname(testfile1))   
         mkdirp.sync(path.dirname(testfile2))   
         mkdirp.sync(path.dirname(testfile3)) 
         mkdirp.sync(path.dirname(testfile4)) 
-        mkdirp.sync(path.dirname(testfile5)) 
-        if( ! await f.isFile(testfile1)) { 
-            await f.copy( path.join( galleryDir,"..",path.basename(testfile1)) , testfile1 )
-        }
-        if( ! await f.isFile(testfile2)) {
-            f.copy( path.join( galleryDir,"..",path.basename(testfile2)) , testfile2  )
-        }
-        if( ! await f.isFile(testfile3)) { 
-            f.copy( path.join( galleryDir,"..",path.basename(testfile3)) , testfile3  )
-        }
-
-        var files = await f.getFullDirListRecursive(galleryDir)
-        for(var i=0 ; i < files.length ; i++){
-            var file = path.join(files[i][1],files[i][0])
-            if (file == testfile1 || file == testfile2 || file == testfile3 ){
-                // we keep these files
-                //console.log("Kept:",file)
-            }
-            else{
-                await f.unlink(file)
-                console.log("Deleted:",file)
-            }
-        }
-
-        return gallery.initDB(json)
-        .then(sql.open)
-        .then(sql.stm("delete from files"))
-        .then(sql.write)
-        .then(sql.stm("delete from images"))
-        .then(sql.write)
-        .then(sql.stm("delete from thumbs"))
-        .then(sql.write)
-        .then(sql.close)
+        mkdirp.sync(path.dirname(testfile5))
+        
     })
 
-    after("Deleting created test files", async function(){
-        var isFile = await f.isFile( testfile4 )
-        if ( isFile) { 
-            fs.unlink(testfile4,()=>{})
-        }
-        isFile = await f.isFile( testfile5 )
-        if ( isFile) { 
-            fs.unlink(testfile5,()=>{})
-        }
-
-
-    })
-    it('Test Init DB File', async function(){
-        var json = new gallery.JSONGallery( galleryDir, path.join(galleryDir,"..","gallery-init.db") )
-        return gallery.initDB(json)
-        .then( async () => {
-            await new Promise( (resolve,reject) => { fs.unlink(json.dbname, ()=> resolve(1))  } )
-            assert(true)
+    it('Create File', async function(){
+        await gallery.createImageFile(testfile1,"testfile1",1024,768)
+        return f.isFile(testfile1)
+        .then(async (isFile)=> {
+            isFile.should.equal(true)
         })
+
     });
 
     it('Hash Creation', async function(){
+        if(! await f.isFile(testfile1)) { await gallery.createImageFile(testfile1,"testfile1",1024,768) }
         var json = new gallery.JSONGallery(galleryDir,galleryDB)
         json.file.fname = path.basename(testfile1)
         json.file.fpath = path.dirname(testfile1)
         json.file.fsize = 323443
         var hash = await gallery.getHash(json.file)
-        json.file.hash.should.equal("c43bfe6a2c2d90c8f482f30ed7682d3c")
+        json.file.hash.should.equal("2e612028e6b80f01ec0bc2781e829a78")
         return Promise.resolve(true)
     });
 
@@ -99,7 +64,34 @@ describe('Gallery Unit Tests', function(){
         .catch((error)=> console.log("ERROR",error))
     });
 
+    it('Add Exif to Image', async function(){
+        if(! await f.isFile(testfile1)) { await gallery.createImageFile(testfile1) }
+        //var testfile1 = path.join(galleryDir,"../usa.jpg")
+        var json = { file: {}}
+        json.file.fname = path.basename(testfile1)
+        json.file.fpath = path.dirname(testfile1)
+        json.file.buffer = fs.readFileSync(testfile1);
+        json.exif = {
+            "DateTimeOriginal" : "2011:11:11 11:11:11",
+            "ImageDescription" : "Test Description, Hello, Andras, Alexandra, Eva, Adam ,Gabor",
+            "Rating"    : "0",
+            "Make" : "NodeJS",
+            "Model" : "JIMP",
+            "gps" : {
+                GPSLatitudeRef: 'N',
+                GPSLatitude: [[44,1],[51,1],[31,1]],
+                GPSLongitudeRef: 'W',
+                GPSLongitude: [[86,1],[4,1],[0,1]]
+            }
+        }
+        return gallery.setExif( json )
+        .then(async (result)=> {
+            result.should.equal(true)
+        })
+    });
+
     it('Exif retrieval', async function(){
+        //var testfile1 = path.join(galleryDir,"../usa.jpg")
         var json = new gallery.JSONGallery(galleryDir,galleryDB)
         json.file.fname = path.basename(testfile1)
         json.file.fpath = path.dirname(testfile1)
@@ -107,12 +99,16 @@ describe('Gallery Unit Tests', function(){
         json.file.buffer = fs.readFileSync(path.join(json.file.fpath,json.file.fname));
         return gallery.getExif( json )
         .then(async (exif)=> {
-            exif.Make.should.equal("LGE")
+            exif.Make.should.equal("NodeJS")
+            exif.Model.should.equal("JIMP")
+            exif.Rating.should.equal(0)
+            exif.ImageDescription.should.equal("Test Description, Hello, Andras, Alexandra, Eva, Adam ,Gabor")
+            exif.DateTimeOriginal.should.equal("2011:11:11 11:11:11")
         })
 
     });
 
-    it("Location retrival", async function(){
+    it("GPS Location retrival", async function(){
         var json = new gallery.JSONGallery(galleryDir,galleryDB)
         json.exif = {gps: { lat: '37.1779528', lon: '-3.5855306' } } 
         return gallery.getLocation(json)
@@ -121,10 +117,20 @@ describe('Gallery Unit Tests', function(){
         })
        
     })
-    
+
+
+    it('Test Init DB File', async function(){
+        var json = new gallery.JSONGallery( galleryDir, path.join(galleryDir,"..","gallery-init.db") )
+        return gallery.initDB(json)
+        .then( async () => {
+            await new Promise( (resolve,reject) => { fs.unlink(json.dbname, ()=> resolve(1))  } )
+            assert(true)
+        })
+    });
+
 })
 
-describe.only('Gallery Full Test', function(){
+describe('Gallery Full Test', function(){
 
     var galleryDB = path.join(__dirname,"../test/gallery/gallery.db")
     var galleryDir = path.join(__dirname,"../test/gallery/files")
@@ -287,6 +293,98 @@ describe.only('Gallery Full Test', function(){
     });
 
 })
+
+describe.only('Gallery Bulk Exif Change on Directory', function(){
+
+    var galleryDB = path.join(__dirname,"../test/gallery/gallery.db")
+    var galleryDir = path.join(__dirname,"../test/gallery/files")
+
+    var testfile1 = path.join(galleryDir,"dir1/1.jpg")
+    var testfile2 = path.join(galleryDir,"dir1/2.jpg")
+    var testfile3 = path.join(galleryDir,"dir1/3.jpg")
+    var testfile4 = path.join(galleryDir,"dir1/4.jpg")
+    var testfile5 = path.join(galleryDir,"dir1/5.jpg")
+    
+    before("Deleting and Setting Directories Only", async function(){
+        try{
+            var files = await f.getFullDirListRecursive(galleryDir)
+            if(files.length <20 && files.length > 1) {
+                t = await f.rmdir(galleryDir)
+            }
+                
+        }catch(e){
+            console.log("nothing to do")
+        }
+        mkdirp.sync(path.dirname(testfile1))   
+        mkdirp.sync(path.dirname(testfile2))   
+        mkdirp.sync(path.dirname(testfile3)) 
+        mkdirp.sync(path.dirname(testfile4)) 
+        mkdirp.sync(path.dirname(testfile5))
+        
+    })
+
+    it.only('Create 5 Files with Exif', async function(){
+        await gallery.createImageFile(testfile1,"testfile1",640,480)
+        await gallery.createImageFile(testfile2,"testfile2",640,480)
+        await gallery.createImageFile(testfile3,"testfile3",640,480)
+        await gallery.createImageFile(testfile4,"testfile4",640,480)
+        await gallery.createImageFile(testfile5,"testfile5",640,480)
+
+        var json = { file: {}}
+
+        for(var i = 1 ; i <= 5 ; i++){
+            var testfile = path.join(path.dirname(testfile1),i.toString()+".jpg")
+            var digit = "0"+i.toString()
+            var testdate = "1999".concat( ":",digit,":",digit," 11:11:11")
+            json.file.fname = path.basename(testfile)
+            json.file.fpath = path.dirname(testfile)
+            json.file.buffer = fs.readFileSync(testfile);
+            json.exif = {
+                "DateTimeOriginal" : testdate,
+                "ImageDescription" : "Testfile",
+                "Rating"    : "0",
+                "Make" : "NodeJS",
+                "Model" : "JIMP",
+                "gps" : {
+                    GPSLatitudeRef: 'N',
+                    GPSLatitude: [[44,1],[51,1],[31,1]],
+                    GPSLongitudeRef: 'W',
+                    GPSLongitude: [[86,1],[4,1],[0,1]]
+                }
+            }
+
+            await gallery.setExif( json )
+        }
+
+        return f.isFile(testfile1)
+        .then(async (isFile)=> {
+            isFile.should.equal(true)
+        })
+
+    });
+
+    it('Exif retrieval', async function(){
+        //var testfile1 = path.join(galleryDir,"../usa.jpg")
+        var json = new gallery.JSONGallery(galleryDir,galleryDB)
+        json.file.fname = path.basename(testfile1)
+        json.file.fpath = path.dirname(testfile1)
+        json.file.fsize = 323443
+        json.file.buffer = fs.readFileSync(path.join(json.file.fpath,json.file.fname));
+        return gallery.getExif( json )
+        .then(async (exif)=> {
+            exif.Make.should.equal("NodeJS")
+            exif.Model.should.equal("JIMP")
+            exif.Rating.should.equal(0)
+            exif.ImageDescription.should.equal("Test Description, Hello, Andras, Alexandra, Eva, Adam ,Gabor")
+            exif.DateTimeOriginal.should.equal("2011:11:11 11:11:11")
+        })
+
+    });
+
+
+})
+
+
 
 describe.skip('Gallery Test Directory', function(){
     var galleryDB = path.join(__dirname,"../test/gallery/realgallery.db")

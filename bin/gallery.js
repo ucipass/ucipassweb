@@ -2,7 +2,8 @@ var path = require('path')
 var fs = require('fs')
 var crypto = require('crypto');
 var geolib = require('geolib');
-var moment = require('moment')
+var moment = require('moment');
+var piexif = require("piexifjs");
 
 var log = require('./logger.js').loggers.get('GALLERY');
 var sql = require('./lib_sqlite.js')
@@ -170,11 +171,15 @@ function getExif(json){try{
 			else{
 				log.silly("EXIF: Starting...",exif)
 				exif.DateTimeOriginal = exifData.exif.DateTimeOriginal
+				exif.ImageDescription	= (exifData.image && exifData.image.ImageDescription) ?	exifData.image.ImageDescription : null
 				exif.Make	= (exifData.image && exifData.image.Make) ?		exifData.image.Make : null
+				exif.Model	= (exifData.image && exifData.image.Model) ?	exifData.image.Model : null
+				exif.Rating	= (exifData.image && exifData.image.Rating >= 0 ) ?	exifData.image.Rating : null
 				exif.Model	= (exifData.image && exifData.image.Model) ?	exifData.image.Model : null
 				log.silly("Exif GPS Data",exif)
 				if (exifData.gps && exifData.gps.GPSLongitude){
 					exif.gps = {}
+					exif.exifData = exifData
 					log.silly("Exif GPS Conversion Start...")
 					exif.gps.lat = convertGPS(exifData.gps.GPSLatitude[0], exifData.gps.GPSLatitude[1], exifData.gps.GPSLatitude[2], exifData.gps.GPSLatitudeRef) 
 					log.silly("Exif Lat:",exif.gps.lat)
@@ -187,6 +192,50 @@ function getExif(json){try{
 		})
 	return final
 	}
+}catch(err){ log.error(err); return Promise.reject(err) }}
+
+function setExif(json){try{
+	//json.file is the only parameter that is used
+	var file = json.file
+	var exif = json.exif
+	var resolve,reject
+	var final = new Promise((res,rej) => { resolve = res, reject = rej })
+	if ( !exif ) {
+		reject("No JSON EXIF Passed to set Exif!")
+	}
+
+	var exifObj =  piexif.load("data:image/jpg;base64,"+file.buffer.toString("base64"))
+	//exifObj["0th"][piexif.ImageIFD.ImageDescription] = "Hello World";
+	//exifObj["Exif"][piexif.ExifIFD.DateTimeOriginal] = "2010:10:11 09:09:09";
+	if(exif.DateTimeOriginal){
+		exifObj["Exif"][piexif.ExifIFD.DateTimeOriginal] = exif.DateTimeOriginal
+	}
+	if(exif.ImageDescription){
+		exifObj["0th"][piexif.ImageIFD.ImageDescription] = exif.ImageDescription
+	}
+	if(exif.Make){
+		exifObj["0th"][piexif.ImageIFD.Make] = exif.Make
+	}
+	if(exif.Model){
+		exifObj["0th"][piexif.ImageIFD.Model] = exif.Model
+	}
+	if(exif.Rating){
+		exifObj["0th"][piexif.ImageIFD.Rating] = parseInt(exif.Rating)
+	}
+	if(exif.gps){
+		exifObj["GPS"][piexif.GPSIFD.GPSDateStamp] = "1999:99:99 99:99:99";
+		exifObj["GPS"][piexif.GPSIFD.GPSLatitudeRef] = exif.gps.GPSLatitudeRef
+		exifObj["GPS"][piexif.GPSIFD.GPSLatitude] = exif.gps.GPSLatitude
+		exifObj["GPS"][piexif.GPSIFD.GPSLongitude] = exif.gps.GPSLongitude
+		exifObj["GPS"][piexif.GPSIFD.GPSLongitudeRef] = exif.gps.GPSLongitudeRef
+	}
+	exifObj["0th"][piexif.ImageIFD.Copyright] ="Copyright, Andras Arato, 2017. All rights reserved."
+	var exifBytes = piexif.dump(exifObj)
+	var newData = piexif.insert(exifBytes, file.buffer.toString("binary"));
+	file.buffer = new Buffer(newData, "binary");
+	fs.writeFileSync( path.join(file.fpath,file.fname), file.buffer);
+	resolve(true)
+	return final
 }catch(err){ log.error(err); return Promise.reject(err) }}
 
 function getThumb(fileorbuffer){try{
@@ -308,14 +357,21 @@ function getDate(json){
 	return curDate
 }
 
-function createImageFile(filename, message){try{
+function createImageFile(filename, message, xsize ,ysize ){try{
+	var resolve,reject
+    var final = new Promise((res,rej)=>{resolve=res,reject=rej})
+	if(!filename){ 
+		reject("No File Name provided!"); 
+		return final
+	}
+    xsize = xsize ? parseInt(xsize) : 640
+	ysize = ysize ? parseInt(ysize) : 480
+	message = message ? message : filename
 	var Jimp = require("jimp");
 	var path = require("path");
-    var resolve,reject
-    var final = new Promise((res,rej)=>{resolve=res,reject=rej})
     log.debug("Creating Image:", filename )
-    var j = new Jimp(1024, 768, function (err, image) {
-        Jimp.loadFont(Jimp.FONT_SANS_128_WHITE)
+    var j = new Jimp(xsize, ysize, function (err, image) {
+        Jimp.loadFont(Jimp.FONT_SANS_16_WHITE)
         .then(function (font) { 
             image.print(font, 10, 10, message)
             return true
@@ -411,6 +467,7 @@ exports.initDB          = initDB;
 exports.getHash         = getHash;
 exports.getThumb        = getThumb;
 exports.getExif        = getExif;
+exports.setExif        = setExif;
 exports.createImageFile    = createImageFile;
 exports.convertGPS     = convertGPS;
 exports.getLocation    = getLocation;
