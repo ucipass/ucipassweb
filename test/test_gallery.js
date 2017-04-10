@@ -1,6 +1,7 @@
 var gallery = require("../bin/gallery")
 var assert = require('assert')
 var fs = require('fs')
+var moment = require('moment')
 var path = require('path')
 var mkdirp = require('mkdirp')
 var should = require('chai').should();
@@ -130,7 +131,7 @@ describe('Gallery Unit Tests', function(){
 
 })
 
-describe('Gallery Full Test', function(){
+describe.skip('Gallery Full Test', function(){
 
     var galleryDB = path.join(__dirname,"../test/gallery/gallery.db")
     var galleryDir = path.join(__dirname,"../test/gallery/files")
@@ -294,7 +295,7 @@ describe('Gallery Full Test', function(){
 
 })
 
-describe.only('Gallery Bulk Exif Change on Directory', function(){
+describe.skip('Gallery Bulk Exif Change on Directory', function(){
 
     var galleryDB = path.join(__dirname,"../test/gallery/gallery.db")
     var galleryDir = path.join(__dirname,"../test/gallery/files")
@@ -323,37 +324,40 @@ describe.only('Gallery Bulk Exif Change on Directory', function(){
         
     })
 
-    it.only('Create 5 Files with Exif', async function(){
+    it('Create 5 Files with Exif', async function(){
         await gallery.createImageFile(testfile1,"testfile1",640,480)
+        var json = { file: {}}
+        json.file.fname = path.basename(testfile1)
+        json.file.fpath = path.dirname(testfile1)
+        json.file.type = json.file.fname.slice((json.file.fname.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase()
+        json.file.buffer = fs.readFileSync(testfile1);
+        json.exif = { "DateTimeOriginal" : "2011:11:11 11:11:11"         }
+        await gallery.setExif( json )
         await gallery.createImageFile(testfile2,"testfile2",640,480)
         await gallery.createImageFile(testfile3,"testfile3",640,480)
         await gallery.createImageFile(testfile4,"testfile4",640,480)
         await gallery.createImageFile(testfile5,"testfile5",640,480)
 
-        var json = { file: {}}
+        var files = await f.getFullDirListRecursive(galleryDir)
+        for(var i = 0 ; i < files.length ; i++){
 
-        for(var i = 1 ; i <= 5 ; i++){
-            var testfile = path.join(path.dirname(testfile1),i.toString()+".jpg")
             var digit = "0"+i.toString()
             var testdate = "1999".concat( ":",digit,":",digit," 11:11:11")
-            json.file.fname = path.basename(testfile)
-            json.file.fpath = path.dirname(testfile)
-            json.file.buffer = fs.readFileSync(testfile);
-            json.exif = {
-                "DateTimeOriginal" : testdate,
-                "ImageDescription" : "Testfile",
-                "Rating"    : "0",
-                "Make" : "NodeJS",
-                "Model" : "JIMP",
-                "gps" : {
-                    GPSLatitudeRef: 'N',
-                    GPSLatitude: [[44,1],[51,1],[31,1]],
-                    GPSLongitudeRef: 'W',
-                    GPSLongitude: [[86,1],[4,1],[0,1]]
-                }
+
+            json.file.fname = files[i][0]
+            json.file.fpath = files[i][1]
+            var filename = path.join(json.file.fpath,json.file.fname)
+            json.file.buffer = fs.readFileSync(filename);
+            var exif  = await gallery.getExif( json )
+            if (!exif || !exif.DateTimeOriginal){
+                var moment = require("moment")
+                var curDate = moment((files[i][3]).toISOString())
+                json.exif = { "DateTimeOriginal" : curDate.format("YYYY:MM:DD HH:mm:ss") }
+                console.log("File:", filename.toString(), "Date:", json.exif.DateTimeOriginal)
+                //await gallery.setExif( json )
             }
 
-            await gallery.setExif( json )
+           
         }
 
         return f.isFile(testfile1)
@@ -443,5 +447,50 @@ describe.skip('Gallery Test Directory', function(){
             c_thumbs.should.equal(3)
             return json;
         })   
+    })
+})
+
+describe.only('Simple Tests', function(){
+
+    it.skip('Test Array Filter', async function(){
+    var arr = ["apple", "bannana", "orange", "apple", "orange"];
+
+    arr = arr.filter( function( item, index, inputArray ) {
+            var findex = inputArray.indexOf(item)
+            var final = findex == index
+            return  final;
+        });
+    assert(true)
+})
+    it('Test Sort', async function(){
+
+        var files = await f.getFullDirListRecursive('/media/aarato/10EACS/Gallery/2011/')
+        var total = files.length
+        function compare(a,b){
+            if( a[4] > b[4] ) {return 1}
+            else if ( a[4] < b[4] ) {return -1}
+            else return(0)
+        }
+        files.sort(compare)
+        var set = 0 ;
+        files.forEach((file,index,arr)=>{
+            if( 
+                arr[index+1] && 
+                //arr[index][2] == arr[index+1][2] &&
+                arr[index][4].getTime() == arr[index+1][4].getTime() 
+                ){
+                console.log(index,"of",total,"Set:",set,file[4], path.join(file[1],file[0]))
+            }
+            else if( 
+                arr[index-1] && 
+                //arr[index][2] == arr[index-1][2] &&
+                arr[index][4].getTime() == arr[index-1][4].getTime() 
+                ){
+                console.log(index,"of",total,"Set:",set,file[4], path.join(file[1],file[0]))
+                set++
+            }
+            
+        })
+        assert(true)
     })
 })
