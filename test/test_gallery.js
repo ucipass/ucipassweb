@@ -8,7 +8,7 @@ var should = require('chai').should();
 var sql = require('../bin/lib_sqlite.js')
 var f = require('../bin/lib_files.js')
 
-describe('Gallery Unit Tests', function(){
+describe.only('Gallery Unit Tests', function(){
 
     var galleryDB = path.join(__dirname,"../test/gallery/gallery.db")
     var galleryDir = path.join(__dirname,"../test/gallery/files")
@@ -58,6 +58,7 @@ describe('Gallery Unit Tests', function(){
     });
 
     it('Thumb Creation', async function(){
+        if(! await f.isFile(testfile1)) { await gallery.createImageFile(testfile1,"testfile1",1024,768) }
         return gallery.getThumb( testfile1 )
         .then(async (base64)=> {
             assert(true)
@@ -65,7 +66,7 @@ describe('Gallery Unit Tests', function(){
         .catch((error)=> console.log("ERROR",error))
     });
 
-    it('Add Exif to Image', async function(){
+    it('Add Exif to Image, Receiving Exif from Image', async function(){
         if(! await f.isFile(testfile1)) { await gallery.createImageFile(testfile1) }
         //var testfile1 = path.join(galleryDir,"../usa.jpg")
         var json = { file: {}}
@@ -85,19 +86,7 @@ describe('Gallery Unit Tests', function(){
                 GPSLongitude: [[86,1],[4,1],[0,1]]
             }
         }
-        return gallery.setExif( json )
-        .then(async (result)=> {
-            result.should.equal(true)
-        })
-    });
-
-    it('Exif retrieval', async function(){
-        //var testfile1 = path.join(galleryDir,"../usa.jpg")
-        var json = new gallery.JSONGallery(galleryDir,galleryDB)
-        json.file.fname = path.basename(testfile1)
-        json.file.fpath = path.dirname(testfile1)
-        json.file.fsize = 323443
-        json.file.buffer = fs.readFileSync(path.join(json.file.fpath,json.file.fname));
+        await gallery.setExif( json )
         return gallery.getExif( json )
         .then(async (exif)=> {
             exif.Make.should.equal("NodeJS")
@@ -106,7 +95,6 @@ describe('Gallery Unit Tests', function(){
             exif.ImageDescription.should.equal("Test Description, Hello, Andras, Alexandra, Eva, Adam ,Gabor")
             exif.DateTimeOriginal.should.equal("2011:11:11 11:11:11")
         })
-
     });
 
     it("GPS Location retrival", async function(){
@@ -119,7 +107,6 @@ describe('Gallery Unit Tests', function(){
        
     })
 
-
     it('Test Init DB File', async function(){
         var json = new gallery.JSONGallery( galleryDir, path.join(galleryDir,"..","gallery-init.db") )
         return gallery.initDB(json)
@@ -131,61 +118,78 @@ describe('Gallery Unit Tests', function(){
 
 })
 
-describe.skip('Gallery Full Test', function(){
+describe.skip('Test Gallery Full Test', function(){
 
     var galleryDB = path.join(__dirname,"../test/gallery/gallery.db")
     var galleryDir = path.join(__dirname,"../test/gallery/files")
 
-    var testfile1 = path.join(galleryDir,"2016/2016-06-25-MichiganSandDunes/usa.jpg")
-    var testfile2 = path.join(galleryDir,"2016/2016-06-25-SpainMalaga/spain.jpg")
-    var testfile3 = path.join(galleryDir,"2011/2011-11-01/nolocation.JPG")
-    var testfile4 = path.join(galleryDir,"2017/2017-04/004.jpg")
-    var testfile5 = path.join(galleryDir,"2017/2017-04/005.jpg")
+    var testfile1 = path.join(galleryDir,"dir1/1.jpg")
+    var testfile2 = path.join(galleryDir,"dir2/2.jpg")
+    var testfile3 = path.join(galleryDir,"dir3/3.jpg")
+    var testfile4 = path.join(galleryDir,"dir4/4.jpg")
+    var testfile5 = path.join(galleryDir,"dir5/5.jpg")
     
     
-    before("Setting Up Test Database and Directories",async function(){
+    before("Setting Up  2 Test Files, Directories & Database",async function(){
         var json = new gallery.JSONGallery(galleryDir,galleryDB)
-        mkdirp.sync(path.dirname(testfile1))   
-        mkdirp.sync(path.dirname(testfile2))   
-        mkdirp.sync(path.dirname(testfile3)) 
-        mkdirp.sync(path.dirname(testfile4)) 
-        mkdirp.sync(path.dirname(testfile5)) 
-        if( ! await f.isFile(testfile1)) { 
-            await f.copy( path.join( galleryDir,"..",path.basename(testfile1)) , testfile1 )
-        }
-        if( ! await f.isFile(testfile2)) {
-            f.copy( path.join( galleryDir,"..",path.basename(testfile2)) , testfile2  )
-        }
-        if( ! await f.isFile(testfile3)) { 
-            f.copy( path.join( galleryDir,"..",path.basename(testfile3)) , testfile3  )
+
+        try{
+            var files = await f.getFullDirListRecursive(galleryDir)
+            if(files.length <10 && files.length > 2) {
+                t = await f.rmdir(galleryDir)
+            }
+                
+        }catch(e){
+            console.log("BEFORE DIRECTORY DELETE ERROR")
         }
 
-        var files = await f.getFullDirListRecursive(galleryDir)
-        for(var i=0 ; i < files.length ; i++){
-            var file = path.join(files[i][1],files[i][0])
-            if (file == testfile1 || file == testfile2 || file == testfile3 ){
-                // we keep these files
-                //console.log("Kept:",file)
-            }
-            else{
-                await f.unlink(file)
-                console.log("Deleted:",file)
-            }
-        }
+        mkdirp.sync(path.dirname(testfile1))
+        await gallery.createImageFile(testfile1,"testfile1",1024,768)
+        var json = new gallery.JSONGallery(galleryDir,galleryDB)
+        json.file = {}
+        json.file.fname = path.basename(testfile1)
+        json.file.fpath = path.dirname(testfile1)
+        json.file.buffer = fs.readFileSync(testfile1);
+        json.exif = {}
+        json.exif.DateTimeOriginal = "2011:11:11 11:11:11"
+        json.exif.ImageDescription = "Testfile1, user11, user12"
+        json.exif.Rating = "0"
+        json.exif.Make = "NodeJS"
+        json.exif.Model = "JIMP"
+        json.exif.gps = {}
+        json.exif.gps.GPSLatitudeRef = 'N'
+        json.exif.gps.GPSLatitude = [[44,1],[51,1],[31,1]]
+        json.exif.gps.GPSLongitudeRef = 'W'
+        json.exif.gps.GPSLongitude = [[86,1],[4,1],[0,1]]
+        await gallery.setExif( json )
 
-        return gallery.initDB(json)
-        .then(sql.open)
-        .then(sql.stm("delete from files"))
-        .then(sql.write)
-        .then(sql.stm("delete from images"))
-        .then(sql.write)
-        .then(sql.stm("delete from thumbs"))
-        .then(sql.write)
-        .then(sql.close)
+        mkdirp.sync(path.dirname(testfile2))
+        await gallery.createImageFile(testfile2,"testfile2",1024,768)
+        json.file.fname = path.basename(testfile2)
+        json.file.fpath = path.dirname(testfile2)
+        json.file.buffer = fs.readFileSync(testfile2);
+        json.exif.DateTimeOriginal = "2022:22:22 22:22:2"
+        json.exif.ImageDescription = "Testfile2, user21, user22"
+        json.exif.Rating = "0"
+        json.exif.Make = "NodeJS"
+        json.exif.Model = "JIMP"
+        json.exif.gps.GPSLatitudeRef = 'N'
+        json.exif.gps.GPSLatitude = [[44,1],[51,1],[31,1]]
+        json.exif.gps.GPSLongitudeRef = 'W'
+        json.exif.gps.GPSLongitude = [[1,1],[4,1],[0,1]]
+        await gallery.setExif( json )
+
+        mkdirp.sync(path.dirname(testfile3))
+        mkdirp.sync(path.dirname(testfile4))
+        mkdirp.sync(path.dirname(testfile5))
     })
 
-    after("Deleting created test files", async function(){
-        var isFile = await f.isFile( testfile4 )
+    afterEach("Deleting created test files", async function(){
+        var isFile = await f.isFile( testfile3 )
+        if ( isFile) { 
+            fs.unlink(testfile3,()=>{})
+        }
+        isFile = await f.isFile( testfile4 )
         if ( isFile) { 
             fs.unlink(testfile4,()=>{})
         }
@@ -194,12 +198,22 @@ describe.skip('Gallery Full Test', function(){
             fs.unlink(testfile5,()=>{})
         }
 
-
     })
 
-    it('ProcessFiles 3 different files', async function(){
+    it('Start Process 2 different files = 2 hashes, 2 images, 2 thumbs', async function(){
         var json = new gallery.JSONGallery(galleryDir,galleryDB)
+        await gallery.initDB(json)
+        .then(sql.open)
+        .then(sql.stm("delete from files"))
+        .then(sql.write)
+        .then(sql.stm("delete from images"))
+        .then(sql.write)
+        .then(sql.stm("delete from thumbs"))
+        .then(sql.write)
+        .then(sql.close)
+
         await gallery.processFiles(json)
+
         return sql.open(json)
         .then(sql.stm("select count(*) from files where active = '1' "))
         .then(sql.read)
@@ -213,19 +227,35 @@ describe.skip('Gallery Full Test', function(){
             var c_thumbs = json.results.pop().table[0][0]
             var c_images = json.results.pop().table[0][0]
             var c_files = json.results.pop().table[0][0]
-            c_files.should.equal(3)
-            c_images.should.equal(3)
-            c_thumbs.should.equal(3)
+            c_files.should.equal(2)
+            c_images.should.equal(2)
+            c_thumbs.should.equal(2)
             return json;
         })   
     });
        
-    it('ProcessFiles - GENERATE testfile4 twice testfile4 and testfile5', async function(){
+    it('Copy Testfile2 as testfiles3 and testfile4 then delete testfile3', async function(){
+        await f.copy(testfile2,testfile3)
+        await f.copy(testfile2,testfile4)
+
         var json = new gallery.JSONGallery(galleryDir,galleryDB)
-        await gallery.createImageFile(testfile4,"TESTFILE4")
-        await f.copy(testfile4,testfile5)
+        await gallery.initDB(json)
+        .then(sql.open)
+        .then(sql.stm("delete from files"))
+        .then(sql.write)
+        .then(sql.stm("delete from images"))
+        .then(sql.write)
+        .then(sql.stm("delete from thumbs"))
+        .then(sql.write)
+        .then(sql.close)
+
         await gallery.processFiles(json)
+        await f.unlink(testfile4)
+        await gallery.processFiles(json)
+
         return sql.open(json)
+        .then(sql.stm("select count(*) from files "))
+        .then(sql.read)
         .then(sql.stm("select count(*) from files where active = '1' "))
         .then(sql.read)
         .then(sql.stm("select count(*) from images"))
@@ -238,159 +268,81 @@ describe.skip('Gallery Full Test', function(){
             var c_thumbs = json.results.pop().table[0][0]
             var c_images = json.results.pop().table[0][0]
             var c_files = json.results.pop().table[0][0]
-            c_files.should.equal(5)
-            c_images.should.equal(4)
-            c_thumbs.should.equal(4)
+            var c_filesall = json.results.pop().table[0][0]
+            c_filesall.should.equal(4)
+            c_files.should.equal(3)
+            c_images.should.equal(2)
+            c_thumbs.should.equal(2)
             return json;
-        })   
-    });
-
-    it('ProcessFiles - Delete testfile5 ', async function(){
-        var json = new gallery.JSONGallery(galleryDir,galleryDB)
-        await f.unlink(testfile5)
-        await gallery.processFiles(json)
-        return sql.open(json)
-        .then(sql.stm("select count(*) from files where active = '1' "))
-        .then(sql.read)
-        .then(sql.stm("select count(*) from images"))
-        .then(sql.read)
-        .then(sql.stm("select count(*) from thumbs"))
-        .then(sql.read)
-        .then(sql.close)
-        .then( json => {
-            json.results.pop()
-            var c_thumbs = json.results.pop().table[0][0]
-            var c_images = json.results.pop().table[0][0]
-            var c_files = json.results.pop().table[0][0]
-            c_files.should.equal(4)
-            c_images.should.equal(4)
-            c_thumbs.should.equal(4)
-            return json;
-        })   
-    });
-
-    it('ProcessFiles - COPY testfile4 as testfile5', async function(){
-        var json = new gallery.JSONGallery(galleryDir,galleryDB)
-        await f.copy(testfile4,testfile5)
-        await gallery.processFiles(json)
-        return sql.open(json)
-        .then(sql.stm("select count(*) from files where active = '1' "))
-        .then(sql.read)
-        .then(sql.stm("select count(*) from images"))
-        .then(sql.read)
-        .then(sql.stm("select count(*) from thumbs"))
-        .then(sql.read)
-        .then(sql.close)
-        .then( json => {
-            json.results.pop()
-            var c_thumbs = json.results.pop().table[0][0]
-            var c_images = json.results.pop().table[0][0]
-            var c_files = json.results.pop().table[0][0]
-            c_files.should.equal(5)
-            c_images.should.equal(4)
-            c_thumbs.should.equal(4)
-            return json;
-        })   
-    });
-
-})
-
-describe.skip('Gallery Bulk Exif Change on Directory', function(){
-
-    var galleryDB = path.join(__dirname,"../test/gallery/gallery.db")
-    var galleryDir = path.join(__dirname,"../test/gallery/files")
-
-    var testfile1 = path.join(galleryDir,"dir1/1.jpg")
-    var testfile2 = path.join(galleryDir,"dir1/2.jpg")
-    var testfile3 = path.join(galleryDir,"dir1/3.jpg")
-    var testfile4 = path.join(galleryDir,"dir1/4.jpg")
-    var testfile5 = path.join(galleryDir,"dir1/5.jpg")
-    
-    before("Deleting and Setting Directories Only", async function(){
-        try{
-            var files = await f.getFullDirListRecursive(galleryDir)
-            if(files.length <20 && files.length > 1) {
-                t = await f.rmdir(galleryDir)
-            }
-                
-        }catch(e){
-            console.log("nothing to do")
-        }
-        mkdirp.sync(path.dirname(testfile1))   
-        mkdirp.sync(path.dirname(testfile2))   
-        mkdirp.sync(path.dirname(testfile3)) 
-        mkdirp.sync(path.dirname(testfile4)) 
-        mkdirp.sync(path.dirname(testfile5))
-        
-    })
-
-    it('Create 5 Files with Exif', async function(){
-        await gallery.createImageFile(testfile1,"testfile1",640,480)
-        var json = { file: {}}
-        json.file.fname = path.basename(testfile1)
-        json.file.fpath = path.dirname(testfile1)
-        json.file.type = json.file.fname.slice((json.file.fname.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase()
-        json.file.buffer = fs.readFileSync(testfile1);
-        json.exif = { "DateTimeOriginal" : "2011:11:11 11:11:11"         }
-        await gallery.setExif( json )
-        await gallery.createImageFile(testfile2,"testfile2",640,480)
-        await gallery.createImageFile(testfile3,"testfile3",640,480)
-        await gallery.createImageFile(testfile4,"testfile4",640,480)
-        await gallery.createImageFile(testfile5,"testfile5",640,480)
-
-        var files = await f.getFullDirListRecursive(galleryDir)
-        for(var i = 0 ; i < files.length ; i++){
-
-            var digit = "0"+i.toString()
-            var testdate = "1999".concat( ":",digit,":",digit," 11:11:11")
-
-            json.file.fname = files[i][0]
-            json.file.fpath = files[i][1]
-            var filename = path.join(json.file.fpath,json.file.fname)
-            json.file.buffer = fs.readFileSync(filename);
-            var exif  = await gallery.getExif( json )
-            if (!exif || !exif.DateTimeOriginal){
-                var moment = require("moment")
-                var curDate = moment((files[i][3]).toISOString())
-                json.exif = { "DateTimeOriginal" : curDate.format("YYYY:MM:DD HH:mm:ss") }
-                console.log("File:", filename.toString(), "Date:", json.exif.DateTimeOriginal)
-                //await gallery.setExif( json )
-            }
-
-           
-        }
-
-        return f.isFile(testfile1)
-        .then(async (isFile)=> {
-            isFile.should.equal(true)
         })
 
     });
 
-    it('Exif retrieval', async function(){
-        //var testfile1 = path.join(galleryDir,"../usa.jpg")
+    it('Copy Testfile2 as testfiles3 then rename testfile3 to testfile4', async function(){
+        await f.copy(testfile2,testfile3)
+
         var json = new gallery.JSONGallery(galleryDir,galleryDB)
-        json.file.fname = path.basename(testfile1)
-        json.file.fpath = path.dirname(testfile1)
-        json.file.fsize = 323443
-        json.file.buffer = fs.readFileSync(path.join(json.file.fpath,json.file.fname));
-        return gallery.getExif( json )
-        .then(async (exif)=> {
-            exif.Make.should.equal("NodeJS")
-            exif.Model.should.equal("JIMP")
-            exif.Rating.should.equal(0)
-            exif.ImageDescription.should.equal("Test Description, Hello, Andras, Alexandra, Eva, Adam ,Gabor")
-            exif.DateTimeOriginal.should.equal("2011:11:11 11:11:11")
+        await gallery.initDB(json)
+        .then(sql.open)
+        .then(sql.stm("delete from files"))
+        .then(sql.write)
+        .then(sql.stm("delete from images"))
+        .then(sql.write)
+        .then(sql.stm("delete from thumbs"))
+        .then(sql.write)
+        .then(sql.close)
+
+        await gallery.processFiles(json)
+        await sql.open(json)
+        .then(sql.stm("select count(*) from files "))
+        .then(sql.read)
+        .then(sql.stm("select count(*) from files where active = '1' "))
+        .then(sql.read)
+        .then(sql.stm("select count(*) from images"))
+        .then(sql.read)
+        .then(sql.stm("select count(*) from thumbs"))
+        .then(sql.read)
+        .then(sql.close)
+        .then( json => {
+            json.results.pop()
+            var c_thumbs = json.results.pop().table[0][0]
+            var c_images = json.results.pop().table[0][0]
+            var c_files = json.results.pop().table[0][0]
+            var c_filesall = json.results.pop().table[0][0]
+            return true;
+        })
+
+        await f.rename(testfile3,testfile4)
+        await gallery.processFiles(json)
+
+        return sql.open(json)
+        .then(sql.stm("select count(*) from files "))
+        .then(sql.read)
+        .then(sql.stm("select count(*) from files where active = '1' "))
+        .then(sql.read)
+        .then(sql.stm("select count(*) from images"))
+        .then(sql.read)
+        .then(sql.stm("select count(*) from thumbs"))
+        .then(sql.read)
+        .then(sql.close)
+        .then( json => {
+            json.results.pop()
+            var c_thumbs = json.results.pop().table[0][0]
+            var c_images = json.results.pop().table[0][0]
+            var c_files = json.results.pop().table[0][0]
+            var c_filesall = json.results.pop().table[0][0]
+            c_filesall.should.equal(4)
+            c_files.should.equal(3)
+            c_images.should.equal(2)
+            c_thumbs.should.equal(2)
+            return json;
         })
 
     });
 
-
 })
 
-
-
-describe.skip('Gallery Test Directory', function(){
+describe.skip('Real Gallery Full Test', function(){
     var galleryDB = path.join(__dirname,"../test/gallery/realgallery.db")
     var galleryDir = path.join("/mnt/2016")
 
@@ -450,21 +402,22 @@ describe.skip('Gallery Test Directory', function(){
     })
 })
 
-describe.only('Simple Tests', function(){
+describe.skip('Simple Code Tests', function(){
 
     it.skip('Test Array Filter', async function(){
-    var arr = ["apple", "bannana", "orange", "apple", "orange"];
+        var arr = ["apple", "bannana", "orange", "apple", "orange"];
 
-    arr = arr.filter( function( item, index, inputArray ) {
-            var findex = inputArray.indexOf(item)
-            var final = findex == index
-            return  final;
-        });
-    assert(true)
-})
+        arr = arr.filter( function( item, index, inputArray ) {
+                var findex = inputArray.indexOf(item)
+                var final = findex == index
+                return  final;
+            });
+        assert(true)
+    })
+
     it('Test Sort', async function(){
 
-        var files = await f.getFullDirListRecursive('/media/aarato/10EACS/Gallery/2011/')
+        var files = await f.getFullDirListRecursive('d:\\node')
         var total = files.length
         function compare(a,b){
             if( a[4] > b[4] ) {return 1}

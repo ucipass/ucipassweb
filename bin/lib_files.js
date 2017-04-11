@@ -23,6 +23,14 @@ function unlink(path) { return new Promise(function(resolve,reject){
 		});
 	})}
 
+function rename(fromPath,toPath) { return new Promise(function(resolve,reject){
+	fs.rename(fromPath,toPath, function(err, stat) {
+		if(err){reject(err)}
+		else {
+			resolve(true)
+			}
+		});
+	})}
 function copy(fromPath, toPath) { return new Promise(function(resolve,reject){
 	fs.stat(fromPath,(err,stat)=>{
 		if(err){reject(err)}
@@ -60,18 +68,29 @@ function getFullDirListRecursive(dir, callback) {  return new Promise(function(r
 		list.forEach(function(file) {
 			var filepath = path.resolve(dir, file);
 			fs.stat(filepath, function(err, stat) {
-				if (stat && stat.isDirectory()) {
-					getFullDirListRecursive(filepath, function(err, res) {
-                        if (err) { console.log("getFullDirListRecursive ERROR",err) }
-						results = results.concat(res);
-						if (!--pending) {done(null, results);return};
+				if (err) { 
+					console.log("getFullDirListRecursive ERROR",err)
+				}
+				else{
+					if (stat && stat.isDirectory()) {
+						getFullDirListRecursive(filepath, function(err, res) {
+							if (err) {
+								console.log("getFullDirListRecursive ERROR",err) 
+							}
+							results = results.concat(res);
+							if (!--pending) {
+								done(null, results);return
+							};
 						});
 					} 
-				else {
-					results.push([file,dir,stat.size.toString(),stat.ctime,stat.mtime]);
-					if (!--pending) done(null, results);
+					else {
+						results.push([file,dir, stat ? stat.size.toString() : 0 , stat ? stat.ctime : 0 , stat ? stat.mtime :0 ]);
+						if (!--pending) {
+							done(null, results)
+						};
 					}
-				});
+				}
+			});
 		});
 	});
 })}
@@ -79,5 +98,6 @@ function getFullDirListRecursive(dir, callback) {  return new Promise(function(r
 exports.isFile                  = isFile
 exports.unlink                  = unlink
 exports.copy                  = copy
+exports.rename                  = rename
 exports.rmdir                  = rmdir
 exports.getFullDirListRecursive = getFullDirListRecursive
