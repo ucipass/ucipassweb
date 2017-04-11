@@ -54,7 +54,6 @@ async function setexif(galleryDir){ try{
         var filename = path.join(json.file.fpath,json.file.fname)
         var moment = require("moment")
         var fileDate = moment(json.file.mtime.toISOString())
-
         json.file.buffer = fs.readFileSync(filename);
         var exif  = await gallery.getExif( json )
         var duplicates = findFile(rootfiles,json.file)
@@ -76,7 +75,18 @@ async function setexif(galleryDir){ try{
             newFileNameExif = exifDate.format("YYYYMMDD_HHmmss_SSS")+".jpg"
             console.log("EXIF File: #",cExif, path.relative(galleryDir,filename) ,"DIFF:",days, "\tDate:",newFileNameDate, "EXIF:", newFileNameExif)
             if(renameFiles){
-                await new Promise((res,rej)=>{    
+                await new Promise((res,rej)=>{
+                    if ( await f.isFile(newFileNameExif)){
+                        for(var i=1 ; i< 990 ; i++ ){
+                            exifDate.add(1,"milliseconds")
+                            newFileNameExif = exifDate.format("YYYYMMDD_HHmmss_SSS")+".jpg"
+                            if (await f.isFile(newFileNameExif)){
+                                continue
+                            } else{
+                                break
+                            }
+                        }
+                    }
                     fs.rename( filename, path.join(json.file.fpath, newFileNameExif ), (err)=>{
                         if(err){rej(err)}
                         res(true)
