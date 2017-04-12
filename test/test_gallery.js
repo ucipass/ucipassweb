@@ -8,7 +8,7 @@ var should = require('chai').should();
 var sql = require('../bin/lib_sqlite.js')
 var f = require('../bin/lib_files.js')
 
-describe.only('Gallery Unit Tests', function(){
+describe('Gallery Unit Tests', function(){
 
     var galleryDB = path.join(__dirname,"../test/gallery/gallery.db")
     var galleryDir = path.join(__dirname,"../test/gallery/files")
@@ -66,7 +66,7 @@ describe.only('Gallery Unit Tests', function(){
         .catch((error)=> console.log("ERROR",error))
     });
 
-    it('Add Exif to Image, Receiving Exif from Image', async function(){
+    it('Add Exif to Image, Get Exif from Image', async function(){
         if(! await f.isFile(testfile1)) { await gallery.createImageFile(testfile1) }
         //var testfile1 = path.join(galleryDir,"../usa.jpg")
         var json = { file: {}}
@@ -94,6 +94,51 @@ describe.only('Gallery Unit Tests', function(){
             exif.Rating.should.equal(0)
             exif.ImageDescription.should.equal("Test Description, Hello, Andras, Alexandra, Eva, Adam ,Gabor")
             exif.DateTimeOriginal.should.equal("2011:11:11 11:11:11")
+        })
+    });
+
+    it('Change/Add Date to Image Exif', async function(){
+        if(! await f.isFile(testfile1)) { await gallery.createImageFile(testfile1) }
+        var json = { file: {}}
+        json.file.fname = path.basename(testfile1)
+        json.file.fpath = path.dirname(testfile1)
+        json.file.buffer = null;
+        var stat = await f.stat( path.join(json.file.fpath,json.file.fname) )
+        var date = moment(stat.mtime).subtract(1,"year").toDate()
+        var dateString = moment(date).format("YYYY:MM:DD HH:mm:ss")
+        await gallery.setExifDate( json.file, date)
+        return gallery.getExif( json )
+        .then(async (exif)=> {
+            exif.DateTimeOriginal.should.equal(dateString)
+        })
+    });
+
+    it('Change filename based on Image Exif Date', async function(){
+        if(! await f.isFile(testfile1)) { await gallery.createImageFile(testfile1) }
+        var json = { file: {}}
+        json.file.fname = path.basename(testfile1)
+        json.file.fpath = path.dirname(testfile1)
+        json.file.buffer = null;
+        //Set Exif for test file based on mtime
+        var stat = await f.stat( path.join(json.file.fpath,json.file.fname) )
+        var date = moment(stat.mtime).toDate()
+        var dateString = moment(date).format("YYYY:MM:DD HH:mm:ss")
+        await gallery.setExifDate( json.file, date)
+        //Create conflicting images to affect renaiming
+        var exifFilename0 = path.join(json.file.fpath,  moment(date).format("YYYYMMDD_HHmmss")+"_000.jpg"   )    
+        var exifFilename1 = path.join(json.file.fpath,  moment(date).format("YYYYMMDD_HHmmss")+"_001.jpg"   )    
+        var exifFilename2 = path.join(json.file.fpath,  moment(date).format("YYYYMMDD_HHmmss")+"_002.jpg"   )
+        await gallery.createImageFile(exifFilename0)
+        await gallery.createImageFile(exifFilename1)
+        //The actual rename
+        await gallery.renameImageByExif(json.file)
+        //Test
+        return f.isFile( exifFilename2)
+        .then(async (isFile)=> {
+            isFile.should.equal(true)
+            await f.unlink(exifFilename0);
+            await f.unlink(exifFilename1);
+            await f.rename(exifFilename2,testfile1);
         })
     });
 
@@ -402,7 +447,7 @@ describe.skip('Real Gallery Full Test', function(){
     })
 })
 
-describe.skip('Simple Code Tests', function(){
+describe.only('Simple Code Tests', function(){
 
     it.skip('Test Array Filter', async function(){
         var arr = ["apple", "bannana", "orange", "apple", "orange"];
@@ -415,7 +460,7 @@ describe.skip('Simple Code Tests', function(){
         assert(true)
     })
 
-    it('Test Sort', async function(){
+    it.skip('Test Sort', async function(){
 
         var files = await f.getFullDirListRecursive('d:\\node')
         var total = files.length
@@ -446,4 +491,22 @@ describe.skip('Simple Code Tests', function(){
         })
         assert(true)
     })
+
+    it.only('Bulk Filename change based on Exif', async function(){
+        galleryDir = "d:\\tmp\\pics"
+        var files = await f.getFullDirListRecursive(galleryDir)
+        for(var i = 0 ; i < files.length ; i++){
+            var json = { file: {}}
+            json.file.fname = files[i][0];
+            json.file.fpath = files[i][1];
+            json.file.mtime = files[i][4];
+            var oldFilename = path.join(json.file.fpath,json.file.fname)
+            var newfile = await gallery.renameImageByExif(json.file)
+            if(newfile && newfile.fname){
+                console.log(i,"of",files.length,oldFilename,"=>",newfile.fname)
+            }
+        }
+        true.should.equal(true)
+    });
+
 })

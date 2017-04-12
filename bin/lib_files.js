@@ -14,6 +14,34 @@ function isFile(path) { return new Promise(function(resolve,reject){
 		});
 	})}
 
+function readFile(path) { return new Promise(function(resolve,reject){
+	fs.readFile(path, function(err, buffer) {
+		if(err){resolve(err)}
+		else{
+			resolve(buffer)
+			} 
+		});
+	})}
+function writeFile(path,buffer) { return new Promise(function(resolve,reject){
+	fs.writeFile(path,buffer, function(err) {
+		if(err){resolve(err)}
+		else{
+			resolve(true)
+			} 
+		});
+	})}
+
+function stat(path) { return new Promise(function(resolve,reject){
+	fs.stat(path, function(err, stat) {
+		if(err){
+			reject(err)
+		}
+		else{
+			resolve(stat)
+		} 
+	});
+})}
+
 function unlink(path) { return new Promise(function(resolve,reject){
 	fs.unlink(path, function(err, stat) {
 		if(err){reject(err)}
@@ -96,6 +124,9 @@ function getFullDirListRecursive(dir, callback) {  return new Promise(function(r
 })}
 
 exports.isFile                  = isFile
+exports.readFile                  = readFile
+exports.writeFile                  = writeFile
+exports.stat                  = stat
 exports.unlink                  = unlink
 exports.copy                  = copy
 exports.rename                  = rename

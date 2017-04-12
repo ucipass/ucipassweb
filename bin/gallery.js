@@ -14,7 +14,6 @@ var baseDir     = path.normalize(path.join( __dirname,".."))
 var galleryDir  = path.normalize(path.join(   baseDir, "gallery/files"));
 var dbname      = path.normalize(path.join(   baseDir, "db/gallery.db"));
 
-
 function delay (time){return new Promise((res,rej)=>{ setTimeout( ()=> {console.log("Delayed",time,"ms") ; res(time) }, time )  })}
 
 function JSONGallery(galleryDir,dbname){
@@ -147,7 +146,7 @@ function getHash(file){ try {
     return final;
 }catch(err){ log.error(err); return Promise.reject(err) }}
 
-function getExif(json){try{
+async function getExif(json){try{
 	//json.file is the only parameter that is used
 	var file = json.file
 	var exif = {}
@@ -155,46 +154,44 @@ function getExif(json){try{
 	var final = new Promise((res,rej) => { resolve = res, reject = rej })
 	var ExifImage = require("exif").ExifImage
 	if (!file.buffer) { 
-		log.error("EXIF: Empty buffer passed!")
-		resolve(exif);
+		file.buffer = await f.readFile( path.join( file.fpath,file.fname ))
 	}
-	else{
-		new ExifImage( file.buffer , function (error, exifData) {
-			if(error){
-				log.debug("EXIF ERR: No Data:")
-				resolve(exif)
+	new ExifImage( file.buffer , function (error, exifData) {
+		if(error){
+			log.debug("EXIF ERR: No Data:")
+			resolve(exif)
+		}
+		else if (!exifData || !exifData.exif || !exifData.exif.DateTimeOriginal) {
+			log.debug("EXIF: No Data:")
+			resolve(exif)
+		}
+		else{
+			log.silly("EXIF: Starting...",exif)
+			exif.DateTimeOriginal = exifData.exif.DateTimeOriginal
+			exif.ImageDescription	= (exifData.image && exifData.image.ImageDescription) ?	exifData.image.ImageDescription : null
+			exif.Make	= (exifData.image && exifData.image.Make) ?		exifData.image.Make : null
+			exif.Model	= (exifData.image && exifData.image.Model) ?	exifData.image.Model : null
+			exif.Rating	= (exifData.image && exifData.image.Rating >= 0 ) ?	exifData.image.Rating : null
+			exif.Model	= (exifData.image && exifData.image.Model) ?	exifData.image.Model : null
+			log.silly("Exif GPS Data",exif)
+			if (exifData.gps && exifData.gps.GPSLongitude){
+				exif.gps = {}
+				exif.exifData = exifData
+				log.silly("Exif GPS Conversion Start...")
+				exif.gps.lat = convertGPS(exifData.gps.GPSLatitude[0], exifData.gps.GPSLatitude[1], exifData.gps.GPSLatitude[2], exifData.gps.GPSLatitudeRef) 
+				log.silly("Exif Lat:",exif.gps.lat)
+				exif.gps.lon = convertGPS(exifData.gps.GPSLongitude[0], exifData.gps.GPSLongitude[1], exifData.gps.GPSLongitude[2], exifData.gps.GPSLongitudeRef)
+				log.silly("Exif Lon:",exif.gps.lon)
 			}
-			else if (!exifData || !exifData.exif || !exifData.exif.DateTimeOriginal) {
-				log.debug("EXIF: No Data:")
-				resolve(exif)
-			}
-			else{
-				log.silly("EXIF: Starting...",exif)
-				exif.DateTimeOriginal = exifData.exif.DateTimeOriginal
-				exif.ImageDescription	= (exifData.image && exifData.image.ImageDescription) ?	exifData.image.ImageDescription : null
-				exif.Make	= (exifData.image && exifData.image.Make) ?		exifData.image.Make : null
-				exif.Model	= (exifData.image && exifData.image.Model) ?	exifData.image.Model : null
-				exif.Rating	= (exifData.image && exifData.image.Rating >= 0 ) ?	exifData.image.Rating : null
-				exif.Model	= (exifData.image && exifData.image.Model) ?	exifData.image.Model : null
-				log.silly("Exif GPS Data",exif)
-				if (exifData.gps && exifData.gps.GPSLongitude){
-					exif.gps = {}
-					exif.exifData = exifData
-					log.silly("Exif GPS Conversion Start...")
-					exif.gps.lat = convertGPS(exifData.gps.GPSLatitude[0], exifData.gps.GPSLatitude[1], exifData.gps.GPSLatitude[2], exifData.gps.GPSLatitudeRef) 
-					log.silly("Exif Lat:",exif.gps.lat)
-					exif.gps.lon = convertGPS(exifData.gps.GPSLongitude[0], exifData.gps.GPSLongitude[1], exifData.gps.GPSLongitude[2], exifData.gps.GPSLongitudeRef)
-					log.silly("Exif Lon:",exif.gps.lon)
-				}
-				log.debug( "EXIF: Complete:" , exif) 
-				resolve(exif) ;
-			}
-		})
+			log.debug( "EXIF: Complete:" , exif)
+			json.exif = exif;
+			resolve(exif) ;
+		}
+	})
 	return final
-	}
 }catch(err){ log.error(err); return Promise.reject(err) }}
 
-function setExif(json){try{
+async function setExif(json){try{
 	//json.file is the only parameter that is used
 	var file = json.file
 	var exif = json.exif
@@ -233,7 +230,33 @@ function setExif(json){try{
 	var exifBytes = piexif.dump(exifObj)
 	var newData = piexif.insert(exifBytes, file.buffer.toString("binary"));
 	file.buffer = new Buffer(newData, "binary");
-	fs.writeFileSync( path.join(file.fpath,file.fname), file.buffer);
+	await f.writeFile( path.join(file.fpath,file.fname), file.buffer);
+	resolve(true)
+	return final
+}catch(err){ log.error(err); return Promise.reject(err) }}
+
+async function setExifDate(file,date){try{
+	//json.file is the only parameter that is used
+	var resolve,reject
+	var final = new Promise((res,rej) => { resolve = res, reject = rej })
+	// At minimum file.fpath, file.fname has to be present
+	if ( !file.fpath || !file.fname) { 
+		reject("Invalid ") ; return final
+	}
+
+	var filename = path.join(file.fpath,file.fname)
+	// If buffer is NOT present read file into buffer
+	if ( !file.buffer ) {
+		file.buffer = await f.readFile(filename)
+	}
+	var exifObj =  piexif.load("data:image/jpg;base64,"+file.buffer.toString("base64"))
+	var exifDate = moment(date).format("YYYY:MM:DD HH:mm:ss")
+	exifObj["Exif"][piexif.ExifIFD.DateTimeOriginal] = exifDate
+	exifObj["0th"][piexif.ImageIFD.Copyright] ="Copyright, Andras Arato, 2017. All rights reserved."
+	var exifBytes = piexif.dump(exifObj)
+	var newData = piexif.insert(exifBytes, file.buffer.toString("binary"));
+	file.buffer = new Buffer(newData, "binary");
+	await f.writeFile( path.join(file.fpath,file.fname), file.buffer);
 	resolve(true)
 	return final
 }catch(err){ log.error(err); return Promise.reject(err) }}
@@ -387,6 +410,72 @@ function createImageFile(filename, message, xsize ,ysize ){try{
     return final;
 }catch(err){ log.error(err); return Promise.reject(err) }}
 
+async function renameImageByExif(file){try{
+	//json.file is the only parameter that is used
+	var resolve,reject
+	var final = new Promise((res,rej) => { resolve = res, reject = rej })
+	var json = { file: file }
+	// At minimum file.fpath, file.fname has to be present
+	if ( !file.fpath || !file.fname) { 
+		reject("Invalid JSON Missing filename") ; return final
+	}
+	//console.log( file.fname.slice((file.fname.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase() )
+	if ( file.fname.slice((file.fname.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase() != "jpg"){
+
+		errorStr = "Not jpg file!" + path.join(file.fpath,file.fname)
+		log.debug(errorStr)
+		resolve(json)
+		return final
+	
+	}
+	await getExif(json)
+	if (!json.exif || ! json.exif.DateTimeOriginal) {
+		errorStr = "NO EXIF: Adding EXIF by using mtime, " + path.join(file.fpath,file.fname)
+		log.error(errorStr)
+		if(json.file.mtime){
+			await setExifDate(json.file,json.file.mtime)
+		}
+		else{
+			var stat = await f.stat( path.join( json.file.fpath, json.file.fname) )
+			json.file.mtime = stat.mtime
+			await setExifDate(json.file,json.file.mtime)
+		}
+		await getExif(json)
+	}
+	var exifDateString = json.exif.DateTimeOriginal
+	var exifDate = moment(exifDateString,"YYYY:MM:DD HH:mm:ss")
+	var exifDateFilename = path.join(file.fpath,  exifDate.format("YYYYMMDD_HHmmss_SSS")+".jpg" )
+	// If the filename is already formatted correctly, do not change anything
+	if ( exifDate.format("YYYYMMDD_HHmmss") == json.file.fname.substring(0,15)){
+		resolve(file)
+		return final
+	}
+	// If the new filename is taken increase the milliseconds in the filename until filename is NOT taken
+	if( await f.isFile(exifDateFilename) ){
+		for(var i = 1; i<991; i++){
+			exifDate = exifDate.add(1,"milliseconds")
+			exifDateFilename = path.join(file.fpath,  exifDate.format("YYYYMMDD_HHmmss_SSS")+".jpg" )
+			if(await f.isFile(exifDateFilename)){
+				// continue
+			}
+			else{
+				if(i == 900){
+					errorStr = "TOO MANY FILE ALREADY EXISTS WITH SAME DATETIME: " + path.join(file.fpath,file.fname)
+					log.error(errorStr)
+					resolve(json)
+					return final
+				}
+				i = 1000;
+			}
+		}
+	}
+	await f.rename( path.join(file.fpath,file.fname), exifDateFilename )
+	file.fname = path.basename(exifDateFilename);
+	resolve(file)
+	return final
+	
+}catch(err){ log.error(err); return Promise.reject(err) }}
+
 function convertGPS(days, minutes, seconds, direction) {
 	try{
 		direction.toUpperCase();
@@ -468,7 +557,9 @@ exports.getHash         = getHash;
 exports.getThumb        = getThumb;
 exports.getExif        = getExif;
 exports.setExif        = setExif;
+exports.setExifDate		= setExifDate;
 exports.createImageFile    = createImageFile;
+exports.renameImageByExif	= renameImageByExif;
 exports.convertGPS     = convertGPS;
 exports.getLocation    = getLocation;
 exports.processFiles    = processFiles;
