@@ -492,8 +492,8 @@ describe.only('Simple Code Tests', function(){
         assert(true)
     })
 
-    it.only('Bulk Filename change based on Exif', async function(){
-        galleryDir = "d:\\tmp\\pics"
+    it.skip('Bulk Filename change based on Exif', async function(){
+        galleryDir = '/media/aarato/10EACS/Gallery/2016'
         var files = await f.getFullDirListRecursive(galleryDir)
         for(var i = 0 ; i < files.length ; i++){
             var json = { file: {}}
