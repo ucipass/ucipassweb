@@ -492,8 +492,8 @@ describe.only('Simple Code Tests', function(){
         assert(true)
     })
 
-    it.skip('Bulk Filename change based on Exif', async function(){
-        galleryDir = '/media/aarato/10EACS/Gallery/2016'
+    it.only('Bulk Filename change based on Exif', async function(){
+        galleryDir = '/media/aarato/10EACS/newGallery/Gallery/2006'
         var files = await f.getFullDirListRecursive(galleryDir)
         for(var i = 0 ; i < files.length ; i++){
             var json = { file: {}}
@@ -501,9 +501,13 @@ describe.only('Simple Code Tests', function(){
             json.file.fpath = files[i][1];
             json.file.mtime = files[i][4];
             var oldFilename = path.join(json.file.fpath,json.file.fname)
-            var newfile = await gallery.renameImageByExif(json.file)
-            if(newfile && newfile.fname){
-                console.log(i,"of",files.length,oldFilename,"=>",newfile.fname)
+            try{
+                var newfile = await gallery.renameImageByExif(json.file)
+                if(newfile && newfile.fname){
+                    console.log(i,"of",files.length,oldFilename,"=>",newfile.fname)
+                }
+            }catch(e){
+                console.log(e)
             }
         }
         true.should.equal(true)
