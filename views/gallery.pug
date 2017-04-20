@@ -1,0 +1,252 @@
+extends layout.pug
+block content
+	link(rel='stylesheet', href='/cdn/Gallery/css/blueimp-gallery.min.css')
+	link(rel='stylesheet', href='/cdn/bootstrap-datepicker/css/bootstrap-datepicker3.css')
+	script(type='text/javascript', 			src='/cdn/bootstrap-datepicker/js/bootstrap-datepicker.js')
+	// CDN SELECT2
+	link(rel='stylesheet',			href="/cdn/select2-4.0.0.min.css")
+	link(rel='stylesheet',			href='/cdn/select2-4.0.0-bootstrap.css')
+	script(							src="/cdn/select2-4.0.0.min.js")
+	// MAIN SCRIPTS
+	script.
+		var username = '#{user}'
+	script(type='text/javascript', 			src='/javascripts/jsondata.js')
+	script(type='text/javascript', 			src='/javascripts/gallery-client.js')
+
+	#blueimp-gallery.blueimp-gallery
+		.slides
+		h3.title
+		a.prev ‹
+		a.next ›			
+		a.close ×
+		a.play-pause
+		ol.indicator
+	script(src='/cdn/Gallery/js/blueimp-gallery.min.js')
+
+	.container-fluid(id='links')
+	.container
+	#modal-edit.modal.fade( role='dialog', aria-labelledby='myModalLabel', aria-hidden='true', style='display: none; ')
+		.modal-dialog.modal-lg
+			.modal-content
+				.modal-header(align="center")
+					h3 Picture Attributes
+				.modal-body
+					.row
+						.col-sm-6
+							div#preview
+								div#edit-image(align="center" style="padding:2px;width:320;height:200")
+								table.table
+									tr
+										td
+											label Hash
+										td
+											input.form-control#edit-hash(   type="text" readonly)
+									tr
+										td
+											label Filename
+										td
+											input.form-control#edit-filename(   type="text" readonly)
+									tr
+										td
+											label Size (Bytes)
+										td
+											input.form-control#edit-size(   type="text" readonly)
+							div#preview-bulk
+								table.table
+									tr
+										td
+											input.form-control#edit-totalfiles(   type="text" readonly placeholder="Total Files")
+									tr
+										td
+											textarea.form-control#edit-filenames(  rows="14" type="text" readonly)
+
+						.col-sm-6
+							table.table
+								tr
+									td
+										label Date
+									td
+										input#edit-chk-date(type="checkbox" value="")
+									td
+										input.form-control#edit-date( type="text" placeholder="Date" style="width:100%")
+								tr
+									td
+										label Event
+									td
+										input#edit-chk-event(type="checkbox" value="")
+									td
+										input.form-control#edit-event(type="text" placeholder="Event")
+								tr
+									td
+										label Description
+									td
+										input#edit-chk-desc(type="checkbox" value="")
+									td
+										input.form-control#edit-desc(type="text" placeholder="Description")
+								tr
+									td
+										label Location
+									td
+										input#edit-chk-location(type="checkbox" value="")
+									td
+										input.form-control#edit-location(type="text" placeholder="Location")
+								tr
+									td
+										label People
+									td
+										input#edit-chk-people(type="checkbox" value="")
+									td
+										label Add
+											input#edit-chk-people-add(type="checkbox" value="")
+										label Delete
+											input#edit-chk-people-del(type="checkbox" value="")
+										select.form-control.select#edit-people( placeholder="People" multiple="multiple" style="width:100%")
+								tr
+									td
+										label Country
+									td
+										input#edit-chk-cc(type="checkbox" value="")
+									td
+										select.form-control.select#edit-cc( placeholder="Country" style="width:100%")
+											option
+								tr
+									td
+										label Rating
+									td
+										input#edit-chk-rating(type="checkbox" value="")
+									td
+										select.form-control.select#edit-rating( placeholder="Picture Rating")
+											option
+								tr
+									td
+									td
+									td
+										button.btn.btn-primary.pull-left#edit-save Save
+										button.btn.btn-primary.pull-right(data-dismiss="modal") Close
+	#modal-filter.modal.fade( role='dialog', aria-labelledby='myModalLabel', aria-hidden='true', style='display: none; ')
+		.modal-dialog.modal-lg
+			.modal-content
+				.modal-header(align="center")
+					p Advanced Filter
+				.modal-body
+					.row
+						.col-sm-6(style="padding:0px")
+							table.table
+								tr
+									td
+										label Event
+									td
+										input#filter-chk-event(type="checkbox" value="")
+									td
+										select.form-control.select#filter-event( placeholder="Event" style="width:100%")
+											option
+								tr
+									td
+										label Date From
+									td
+										input(type='checkbox')
+									td
+										input.form-control.filter#filter-frdate(placeholder="From Date" size="8")
+								tr
+									td
+										label Date To
+									td
+										input(type='checkbox')
+									td
+										input.form-control.filter#filter-todate(placeholder="To Date" size="8")
+								tr
+									td
+										label People
+									td
+										input#filter-chk-people(type="checkbox" value="")
+									td
+										select.form-control.select#filter-people( placeholder="People" multiple="multiple" style="width:100%")
+								tr
+									td
+										label Country
+									td
+										input#filter-chk-cc(type="checkbox" value="")
+									td
+										select.form-control.select#filter-cc( placeholder="Country" style="width:100%")
+											option
+								tr
+									td
+										label Rating
+									td
+										input#filter-chk-rating(type="checkbox" value="")
+									td
+										select.form-control.select#filter-rating( placeholder="Picture Rating")
+											option
+						.col-sm-6(style="padding:0px")
+							table.table
+								tr
+									td
+										label Description
+									td
+										input#filter-chk-description(type="checkbox" value="")
+									td
+										input.form-control.filter#filter-desc(placeholder="Description")
+								tr
+									td
+										label Location
+									td
+										input#filter-chk-location(type="checkbox" value="")
+									td
+										input.form-control#filter-location(type="text" placeholder="Location")
+								tr
+									td
+										label File Hash
+									td
+										input(type='checkbox')
+									td
+										input.form-control.filter#filter-hash(placeholder="Hash" size="8")
+								tr
+									td
+										label File Path
+									td
+										input(type='checkbox')
+									td
+										input.form-control.filter#filter-fpath(placeholder="File path" size="8")
+								tr
+									td
+										label File Name
+									td
+										input(type='checkbox')
+									td
+										input.form-control.filter#filter-fname(placeholder="File name" size="8")
+								tr
+									td
+										label File Size
+									td
+										input(type='checkbox')
+									td
+										input.form-control.filter#filter-fsize(placeholder="File size" size="8")
+				.modal-footer
+					label.text-muted Limit:
+					select.form-control.select#filter-limit
+					button.btn.btn-primary#filter-search Search
+					button.btn.btn-primary(data-dismiss="modal") Close					
+					
+	nav.navbar.navbar-inverse.navbar-fixed-bottom()
+		div.container-fluid
+			div.navbar-footer
+					.form-inline
+						if( user == 'admin' || user == 'test')
+							select.form-control.select#select-mode
+							button.btn.btn-primary(style="margin-left:5px")#edit Edit
+							label.text-muted All
+								input#selectall(type="checkbox")
+						if( user != 'admin' && user != 'test')
+							div(style="display:none")
+								select.form-control.select#select-mode(style="display:none" hidden)
+								button.btn.btn-primary(style="margin-left:5px;display:none")#edit Edit
+								label.text-muted(style="display:none") All
+									input#selectall(type="checkbox" style="display:none")
+						.form-group.pull-right
+							button.btn.btn-primary(style="margin-left:5px")#filter Filter
+							select.form-control.select#pages
+							button.btn.btn-primary(style="margin-left:5px")#prev
+								span.glyphicon.glyphicon-menu-left
+							button.btn.btn-primary(style="margin-left:5px")#next
+								span.glyphicon.glyphicon-menu-right
+	

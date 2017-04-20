@@ -8,7 +8,7 @@ var should = require('chai').should();
 var sql = require('../bin/lib_sqlite.js')
 var f = require('../bin/lib_files.js')
 
-describe('Gallery Unit Tests', function(){
+describe.only('Gallery Unit Tests', function(){
 
     var galleryDB = path.join(__dirname,"../test/gallery/gallery.db")
     var galleryDir = path.join(__dirname,"../test/gallery/files")
@@ -447,7 +447,7 @@ describe.skip('Real Gallery Full Test', function(){
     })
 })
 
-describe.only('Simple Code Tests', function(){
+describe.skip('Simple Code Tests', function(){
 
     it.skip('Test Array Filter', async function(){
         var arr = ["apple", "bannana", "orange", "apple", "orange"];
