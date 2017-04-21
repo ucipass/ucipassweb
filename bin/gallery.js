@@ -4,15 +4,22 @@ var crypto = require('crypto');
 var geolib = require('geolib');
 var moment = require('moment');
 var piexif = require("piexifjs");
+var express = require('express');
+
 
 var log = require('./logger.js').loggers.get('GALLERY');
 var sql = require('./lib_sqlite.js')
 var f = require("./lib_files.js")
 var JSONData = require('./jsondata.js');
 
-var baseDir     = path.normalize(path.join( __dirname,".."))
-var galleryDir  = path.normalize(path.join(   baseDir, "gallery/files"));
-var dbname      = path.normalize(path.join(   baseDir, "db/gallery.db"));
+//var baseDir     = path.normalize(path.join( __dirname,".."))
+//var galleryDir  = path.normalize(path.join(   baseDir, "test/gallery/files"));
+//var dbname      = path.normalize(path.join(   baseDir, "db/gallery.db"));
+
+var router = express.Router();
+router.get("/", function (req, res) {
+	res.render('gallery',{title:"gallery" ,user:req.user?req.user.id:null ,message: "gallery",redir:req.query.redir });
+	});
 
 function delay (time){return new Promise((res,rej)=>{ setTimeout( ()=> {console.log("Delayed",time,"ms") ; res(time) }, time )  })}
 
@@ -551,6 +558,28 @@ async function processFiles(json){ try {
     return final
 }catch(err){ log.error(err); return Promise.reject(err) }}
 
+var gallery = {}
+gallery.JSONGallery = JSONGallery;
+gallery.initDB          = initDB;
+gallery.getHash         = getHash;
+gallery.getThumb        = getThumb;
+gallery.getExif        = getExif;
+gallery.setExif        = setExif;
+gallery.setExifDate		= setExifDate;
+gallery.createImageFile    = createImageFile;
+gallery.renameImageByExif	= renameImageByExif;
+gallery.convertGPS     = convertGPS;
+gallery.getLocation    = getLocation;
+gallery.processFiles    = processFiles;
+gallery.router    = router;
+
+module.exports = gallery
+console.log("Gallery Module Started...")
+//var json = new gallery.JSONGallery(galleryDir,dbname)
+//gallery.processFiles(json)
+
+
+/*
 exports.JSONGallery = JSONGallery;
 exports.initDB          = initDB;
 exports.getHash         = getHash;
@@ -563,9 +592,18 @@ exports.renameImageByExif	= renameImageByExif;
 exports.convertGPS     = convertGPS;
 exports.getLocation    = getLocation;
 exports.processFiles    = processFiles;
+*/
+
 
 /*
 var json = new JSONGallery("../test/gallery","../test/gallery.db")
 new Promise( (resolve,reject) => { fs.unlink(json.dbname, ()=> resolve(1)) } )
 .then(()=>processFiles(json))
+*/
+
+/*
+var galleryDB = path.join(__dirname,"./test/gallery/realgallery.db")
+var galleryDir = "./test/gallery"
+var json = new gallery.JSONGallery(galleryDir,galleryDB)
+gallery.processFiles(json)
 */
