@@ -493,7 +493,7 @@ describe.only('Simple Code Tests', function(){
     })
 
     it.only('Bulk Filename change based on Exif', async function(){
-        galleryDir = '/media/aarato/10EACS/newGallery/Gallery/2006'
+        galleryDir = '/media/aarato/10EACS/newGallery/Gallery/2013'
         var files = await f.getFullDirListRecursive(galleryDir)
         for(var i = 0 ; i < files.length ; i++){
             var json = { file: {}}
