@@ -2,7 +2,7 @@ var path	= require("path")
 var app     = require('./bin/www.js').app		// Express.js
 var auth 	= require('./bin/auth.js');			// Authentication middleware using Passport (using "app")
 var users 	= require('./bin/users.js').router;	// Router for User Management
-var gallery = require("./bin/gallery.js").router
+var gallery = require("./routes/gallery/gallery.js")
 
 
 
