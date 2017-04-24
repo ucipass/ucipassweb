@@ -14,7 +14,7 @@ var JSONData = require('./lib/jsondata.js');
 
 var logger = require('winston');
 logger.emitErrs = true;
-logger.loggers.add('GALLERYDB', { console: { level: 'info', label: "GALLERYDB", handleExceptions: true, json: false, colorize: true}});
+logger.loggers.add('GALLERYDB', { console: { level: 'debug', label: "GALLERYDB", handleExceptions: true, json: false, colorize: true}});
 var log = logger.loggers.get('GALLERYDB');
 
 class GalleryDB {
@@ -22,7 +22,7 @@ class GalleryDB {
 		this.galleryDir		=	path.normalize(path.resolve(galleryDir))
 		this.dbname 		= 	path.normalize(path.resolve(dbname))
 		this.filelist		=	null
-		this.allowedFns		= ["getselect2"]	// functions allowed to be called via ioData remotely
+		this.allowedFns		= ["getselect2","getimages"]	// functions allowed to be called via ioData remotely
 	}
 	async init(){
 		var db = new File(this.dbname)
@@ -34,9 +34,24 @@ class GalleryDB {
 		await Promise.resolve(json)
 		.then(function(json){ log.info("Database File NOT found creating new one!",json.dbname) ; return json})
 		.then(sql.open(json))
-		.then(sql.stm("CREATE TABLE IF NOT EXISTS files (fpath NOT NULL,hash NOT NULL, size NOT NULL, ctime DATETIME NOT NULL, mtime DATETIME NOT NULL, active BOOLEAN NOT NULL, PRIMARY KEY (fpath)) "))
+		.then(sql.stm("CREATE TABLE IF NOT EXISTS files (\
+			fpath NOT NULL,\
+			hash NOT NULL,\
+			size NOT NULL,\
+			ctime DATETIME NOT NULL,\
+			mtime DATETIME NOT NULL,\
+			active BOOLEAN NOT NULL,\
+			PRIMARY KEY (fpath)) "))
 		.then(sql.write)
-		.then(sql.stm("CREATE TABLE IF NOT EXISTS images (hash NOT NULL, idate DATETIME, event, desc, location, cc, people, rating INTEGER, att, PRIMARY KEY (hash)) "))
+		.then(sql.stm("CREATE TABLE IF NOT EXISTS images (\
+			hash NOT NULL,\
+			idate DATETIME,\
+			event, desc,\
+			location, cc,\
+			people,\
+			rating INTEGER,\
+			att,\
+			PRIMARY KEY (hash)) "))
 		.then(sql.write)
 		.then(sql.stm("CREATE TABLE IF NOT EXISTS locations (lat  REAL NOT NULL ,lon  REAL NOT NULL , location, cc) "))
 		.then(sql.write)
@@ -141,9 +156,90 @@ class GalleryDB {
 		ioData.att().countries = [{id:"US",text:"United States"},{id:"HU",text:"Hungary"}]
 		ioData.att().event = ["2016-01-Naperville","1999-01-Hungary"]
 		return ioData;
-	}
-	
+	}	
+	async getimages(ioData){
 
+		var start = true;
+		var limit = ioData.att().limit
+		var offset = ioData.att().offset
+		
+		var hash = ioData.att().hash
+		var fpath = ioData.att().fpath
+		var fname = ioData.att().fname
+		var size = ioData.att().fsize
+		var frdate = ioData.att().frdate
+		var todate = ioData.att().todate
+		var event = ioData.att().event
+		var desc = ioData.att().desc
+		var location = ioData.att().location
+		var cc = ioData.att().cc
+		var people = ioData.att().people
+		var rating = ioData.att().rating
+		
+		var where = ""
+		if (hash) where+= " AND images.hash LIKE '%"+hash+"%' "
+		if (fpath && fname) where+= " AND fpath LIKE '%"+fpath+"%' "
+		if (size) where+= " AND size LIKE '%"+size+"%' "
+		if (frdate) where+= " AND idate > '"+frdate+"' "
+		if (todate) where+= " AND idate < '"+todate+"' "
+		if (event) where+= " AND event LIKE '%"+event+"%' "
+		if (desc) where+= " AND desc LIKE '%"+desc+"%' "
+		if (location) where+= " AND location LIKE '%"+location+"%' "
+		if (cc) where+= " AND cc LIKE '%"+cc+"%' "
+		if (people) where+= " AND people LIKE '%"+people+"%' "
+		if (rating) where+= " AND rating IS '"+rating+"' "
+		if (ioData.id() != "admin") where+= " AND rating IS NOT 1 AND rating IS NOT 0 "
+		
+		var presqlstm = "\
+			SELECT * FROM (\
+				SELECT * FROM  (\
+					SELECT files.hash AS hash, fpath, size, idate, event, desc, location, cc, people, rating, att \
+					FROM files \
+					LEFT JOIN images ON files.hash = images.hash  \
+					WHERE active IS '1' "+ where +" \
+					) \
+				GROUP by hash \
+				ORDER BY idate asc ) as joinedTable \
+			LEFT JOIN thumbs on joinedTable.hash = thumbs.hash"
+			
+		var sqlstm_count = " SELECT count(*) FROM ( "+presqlstm+" )"
+		var sqlstm = presqlstm+" LIMIT " + limit +  ( offset ? (" OFFSET " + offset) : "" )
+		log.debug("FILES - SQL STM:", sqlstm.replace(/\t/g,""))
+		log.debug("receive: Start",Date())
+		var result = await Promise.resolve({dbname:this.dbname, dbro:0,	dblog:0})
+		.then(sql.open)
+		.then(sql.stm(sqlstm_count))
+		.then(sql.read)
+		.then(sql.stm(sqlstm))
+		.then(sql.read)
+		.then(sql.close)
+		//.then(sql.logSuccess,sql.logError)
+		.then(function(json){try{
+			log.debug("receive: End",Date())
+			json.results.pop();
+			var result = json.results.pop();
+			var count = json.results.pop().table[0][0];
+			ioData.att().cmd += "-success";
+			ioData.att().images = {columns: result.columns, table: result.table, count: count , offset:offset}
+			return (ioData);
+		}catch(e){console.log(e)}})
+		.catch(function(error){
+			ioData.error = error
+			ioData.att().cmd += "-error";
+			return (ioData);
+		})
+		return result
+	}
+
+
+
+
+
+
+
+
+
+	
 
 	
 	async get_SqlImageRow(json){

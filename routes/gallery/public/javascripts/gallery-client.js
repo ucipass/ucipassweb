@@ -277,15 +277,15 @@ function addElement(json,error){return new Promise(function(resolve, reject){try
 	var index = json.index;
 	var file = json.filearray[index];
 	console.log(file[0])
-	var fname = "/gallery/files/"+file[1]+"/"+file[2]
+	var fname = "/gallery/"+file[1]
 	var fsize = file[3]
 	var date  = file[4]
 	var desc  = file[5]
 	var location = file[6]  
 	var people= file[7]
-	var rating   = file[8]
+	var rating   = file[9]
 	//var att   = file[9]
-	var thumb64 = file[12]
+	var thumb64 = file[11]
 	var hover = file[0]+"\n"+fname+"\n"+file[3]+"\n"+file[4]+"\n"+file[5]+"\n"+file[6]+"\n"+file[7]
 	var rowID = "row_"+(Math.floor(index/4)*4).toString()
 	var imgId = "img_"+index.toString()
@@ -314,7 +314,7 @@ function addElement(json,error){return new Promise(function(resolve, reject){try
 function addThumbs(json,error){return new Promise(function(resolve, reject){try{
 	var index = json.index;
 	var file = json.filearray[index];
-	var thumb64 = file[12]
+	var thumb64 = file[11]
 	$("#img"+index.toString()).attr('src', 'data:image/png;base64,'+thumb64)
 	json.index++
 	setTimeout(function() {
