@@ -13,11 +13,12 @@ var galleryDir = path.join(__dirname,"files")
 var dbname = path.join(__dirname,"gallery.db")
 var db = new GalleryDB(galleryDir,dbname)
 db.init()
-db.getNewFiles()
+.then(()=>{db.getNewFiles()})
+
 
 router.get("/", function (req, res) {
 	var render = path.join(__dirname,"gallery")
-	console.log(render)
+	//console.log(render)
 	res.render(render,{title:"gallery" ,user:req.user?req.user.id:null ,message: "gallery",redir:req.query.redir });
 });
 router.post("/", function (req, res) {

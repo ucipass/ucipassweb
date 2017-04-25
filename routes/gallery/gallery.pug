@@ -7,12 +7,17 @@ block content
 	link(rel='stylesheet',			href="/gallery/cdn/select2-4.0.0.min.css")
 	link(rel='stylesheet',			href='/gallery/cdn/select2-4.0.0-bootstrap.css')
 	script(							src="/gallery/cdn/select2-4.0.0.min.js")
+	// BOOTSTRAP TOGGLE
+	link(href="//gitcdn.github.io/bootstrap-toggle/2.2.2/css/bootstrap-toggle.min.css", rel="stylesheet")
+	script(src="//gitcdn.github.io/bootstrap-toggle/2.2.2/js/bootstrap-toggle.min.js")
+
+
 	// MAIN SCRIPTS
 	script.
 		var username = '#{user}'
 	script(type='text/javascript', 			src='/gallery/javascripts/jsondata.js')
 	script(type='text/javascript', 			src='/gallery/javascripts/gallery-client.js')
-
+	link(rel='stylesheet',			href='/gallery/javascripts/gallery-client.css')
 	#blueimp-gallery.blueimp-gallery
 		.slides
 		h3.title
@@ -232,6 +237,7 @@ block content
 			div.navbar-footer
 					.form-inline
 						if( user == 'admin' || user == 'test')
+							input(checked  data-toggle="toggle" data-on="View" data-off="Edit" type="checkbox")#main-mode
 							select.form-control.select#select-mode
 							button.btn.btn-primary(style="margin-left:5px")#edit Edit
 							label.text-muted All

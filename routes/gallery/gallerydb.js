@@ -100,7 +100,7 @@ class GalleryDB {
 						await jpg.getExif()
 						delete jpg.exif.exifData
 						var gps = await jpg.getLocation(this.dbname)
-						var idate = jpg.exif.DateTimeOriginal
+						var idate = moment( jpg.exif.DateTimeOriginal ,"YYYY:MM:DD HH:mm:ss").toISOString()
 						var event = jpg.fpath.split(path.sep)[jpg.fpath.split(path.sep).length-2]
 						var desc = jpg.exif.ImageDescription ? jpg.exif.ImageDescription :  jpg.fpath
 						var location = gps.location ? gps.location : null

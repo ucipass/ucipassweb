@@ -45,12 +45,22 @@ function JSONData(id,type,attributes){
 			}
 		}
 	this.post= function(callback){
+		var resolve,reject
+		var final = new Promise((res,rej)=>{ resolve = res; reject = rej})
 		$.ajax({
 			type: 'POST',
 			data: this.json,
 			url: '/gallery'
 			})
-		.done(function (jsonReply) { callback(jsonReply)});
+		.done(function (jsonReply) {
+			if(callback){
+				callback(jsonReply) 
+			}
+			else{ 
+				resolve(jsonReply)
+			}
+		});
+		return final
 		}
 	}
 

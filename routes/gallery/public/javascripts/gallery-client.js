@@ -4,18 +4,9 @@ var totalFiles = 0; // Number of files matching the search
 var thumb64 = null;
 
 $(document).ready(function(){
-	selectfill();
-	$('#filter-frdate').datepicker({format: 'yyyy-mm-dd',todayHighlight: true,autoclose: true});
-	$('#filter-todate').datepicker({format: 'yyyy-mm-dd',todayHighlight: true,autoclose: true});
-	$('#edit-date').datepicker({format: 'yyyy-mm-dd',todayHighlight: true,autoclose: true});
-	$("#filter").click(function(e){ e.preventDefault(); $('#modal-filter').modal("toggle")	});
-	$("#selectall").click(function(e) {  if($('#selectall').is(':checked')) {$('.cell').addClass('pic-select');} else{$('.cell').removeClass('pic-select');}   } );
-	$("#filter-search").click(function(e){ e.preventDefault(); filterSearch(0); $('#modal-filter').modal("toggle")	});
-	$("#edit").click(function(e){ e.preventDefault(); edit("0");} );
-	$("#edit-save").click(function(e){ e.preventDefault(); save();} );
-	
-	$('#modal-filter').modal("show")
-	//filterSearch(0)
+	elementSetup();
+	//$('#modal-filter').modal("show")
+	filterSearch(0)
 })
 
 function clickPic(index){
@@ -25,8 +16,9 @@ function clickPic(index){
 	}
 
 
-function selectfill(){
-	pager(0)
+function elementSetup(){
+	// Setup Static Select Elements
+	//pager(0)
 	var people = [	{ id: "None", text: "None" }, 
 					{ id: "Ottone", text: "Ottone" },
 					{ id: "Istvanne", text: "Istvanne" }, 
@@ -36,7 +28,9 @@ function selectfill(){
 					{ id: "Eva", text: "Eva" }, 
 					{ id: "Adam", text: "Adam" },
 					{ id: "Alexandra", text: "Alexandra" }];
-
+	$("#pages").select2({
+		data: [{id:0, text:  "0-0 of 0" }]
+	});
 	$("#filter-limit").select2({
 		data: [  { id: "50", text: "50" },{ id: "100", text: "100" },{ id: "250", text: "250" }, { id: "500", text: "500" },{ id: "1000", text: "1000" }]
 		});
@@ -63,6 +57,7 @@ function selectfill(){
 		placeholder: "Picture Rating",
 		data: [  { id: 0, text: "Hidden" }, { id: 1, text: 'Delete' }, { id: 2, text: 'Bad' }, { id: 3, text: 'Average' }, { id: 4, text: 'Good' }, { id: 5, text: 'Best' }]
 		});
+	// Setup Dynamic Select Elements from Database
 	(new JSONData(username,"gallery",{cmd:"getselect2"})).post(function(res){
 		console.log("SELECT2 Countries",res.data.attributes.countries)
 		console.log("SELECT2 Events",res.data.attributes.event)
@@ -82,6 +77,17 @@ function selectfill(){
 			data: res.data.attributes.event
 			});		
 		});
+	// Setup Datepickers
+	$('#filter-frdate').datepicker({format: 'yyyy-mm-dd',todayHighlight: true,autoclose: true});
+	$('#filter-todate').datepicker({format: 'yyyy-mm-dd',todayHighlight: true,autoclose: true});
+	$('#edit-date').datepicker({format: 'yyyy-mm-dd',todayHighlight: true,autoclose: true});
+	// Setup Events
+	$("#filter").click(function(e){ e.preventDefault(); $('#modal-filter').modal("toggle")	});
+	$("#selectall").click(function(e) {  if($('#selectall').is(':checked')) {$('.cell').addClass('pic-select');} else{$('.cell').removeClass('pic-select');}   } );
+	$("#filter-search").click(function(e){ e.preventDefault(); filterSearch(0); $('#modal-filter').modal("toggle")	});
+	$("#edit").click(function(e){ e.preventDefault(); edit("0");} );
+	$("#main-mode").change(function() { filterSearch(0); })
+	$("#edit-save").click(function(e){ e.preventDefault(); save();} );
 	}
 function pager(offset){
 	//Turn off Event handlers before changes and delete content of selector
@@ -129,7 +135,7 @@ function pager(offset){
 	}
 
 
-function filterSearch(offset){
+async function filterSearch(offset){
 	elemClear("links");
 	$('#links').append('<h1>Waiting for server...</h1>')
 	galleryFiles = []
@@ -152,24 +158,23 @@ function filterSearch(offset){
 	json.cmd = "getimages"
 	ioData = new JSONData(username,"gallery",json)
 	console.log("SEND:",ioData.att().cmd,ioData.att());
-	ioData.post(function(res){
+	var res = await ioData.post().catch( (err)=>{console.log("FAILED POST:",e)} )
+	elemClear("links");
+	elemClear("links");
+	if( !res || !res.data || !res.data.attributes.images || !res.data.attributes.images.table) {
 		elemClear("links");
-		elemClear("links");
-		if( !res.data.attributes.images || !res.data.attributes.images.table) {
-			elemClear("links");
-			pager(0)
-			console.log("RECEIVE No images received!",res);
-			return
-		}
-		filearray = res.data.attributes.images.table
-		totalFiles = res.data.attributes.images.count
-		thumb64 = res.data.attributes.images.thumb
-		var offset = res.data.attributes.images.offset
-		console.log("RESULT:",offset,totalFiles,res);
-		pager(offset)
-		addElements({elemID:"links",index:0,filearray:filearray})
-		.catch(function(e){console.log("FAIL:",e)})
-		})
+		pager(0)
+		console.log("RECEIVE No images received!",res);
+		return
+	}
+	filearray = res.data.attributes.images.table
+	totalFiles = res.data.attributes.images.count
+	thumb64 = res.data.attributes.images.thumb
+	var offset = res.data.attributes.images.offset
+	console.log("RESULT:",offset,totalFiles,res);
+	pager(offset)
+	addElements({elemID:"links",index:0,filearray:filearray})
+	.catch(function(e){console.log("FAIL:",e)})
 	}
 
 function edit(index){
@@ -276,76 +281,88 @@ function addElement(json,error){return new Promise(function(resolve, reject){try
 	var elemID = json.elemID;
 	var index = json.index;
 	var file = json.filearray[index];
-	console.log(file[0])
-	var fname = "/gallery/"+file[1]
-	var fsize = file[3]
-	var date  = file[4]
-	var desc  = file[5]
-	var location = file[6]  
-	var people= file[7]
+	var hash = file[0]
+	var fpath = "/gallery/"+file[1]
+	var size = file[2]
+	var date  = file[3]
+	var event  = file[4]
+	var desc = file[5]  
+	var location= file[6]
+	var cc		= file[7]
+	var people		= file[8]
 	var rating   = file[9]
 	//var att   = file[9]
 	var thumb64 = file[11]
-	var hover = file[0]+"\n"+fname+"\n"+file[3]+"\n"+file[4]+"\n"+file[5]+"\n"+file[6]+"\n"+file[7]
-	var rowID = "row_"+(Math.floor(index/4)*4).toString()
-	var imgId = "img_"+index.toString()
+	var hover = "Hash: "+file[0]+"\nFile: "+file[1]+"\nNotes: "+desc+"\nLocation: "+location+"\nCountry: "+cc
 	//console.log("BEFORE APPEND ELEMENT",json)
 
-	if (index % 4){
-		$('#'+rowID).append('<div id="cell'+index.toString()+'" class="col-md-3 cell" style="padding:2px">\
+	var htmlString1 = '<a id="cell'+index.toString()+'"  style="padding:2px">\
 								<img id="img'+index.toString()+'" src="data:image/jpg;base64,'+ "thumb64" +'" \
-								onload=adjust(this) onclick="clickPic('+index.toString()+')" class="img-responsive" \
-								data-toggle="tooltip" data-placement="top" title="'+hover+'"></div>')
-		}
-	else{
-		$('#'+elemID).append('<div id="'+rowID+'"></div>')
-		$('#'+rowID).append( '<div id="cell'+index.toString()+'" class="col-md-3 cell" style="padding:2px">\
-								<img id="img'+index.toString()+'" src="data:image/jpg;base64,'+ "thumb64" +'" \
-								onload=adjust(this) onclick="clickPic('+index.toString()+')" class="img-responsive" \
-								data-toggle="tooltip" data-placement="top" title="'+hover+'"></div>')
-		}
+								onload=adjust(this) onclick="clickPic('+index.toString()+')"  \
+								data-toggle="tooltip" data-placement="top" title="'+hover+'"></a>'
 
-	galleryFiles.push(fname);
+	var htmlString2 = '<div class=row>\
+							<div class=col-lg-6>\
+								<a id="cell'+index.toString()+'"> \
+								<img id="img'+index.toString()+'" src="data:image/jpg;base64,'+ "thumb64" +'" \
+								</a>\
+							</div>\
+							<div class=col-lg-6>\
+								<table>\
+									<tr><td><label>Hash</label></td><td><input id="hash'+index.toString()+' type="text" value="'+hash+'" class="form-control" (placeholder="File path" size="30")"></td></tr>\
+									<tr><td><label>Filename</label></td><td><input id="fpath'+index.toString()+' type="text" value="'+fpath+'" class="form-control" (placeholder="File path" size="30")"></td></tr>\
+									<tr><td><label>Size</label></td><td><input id="size'+index.toString()+' type="text" value="'+size+'" class="form-control" (placeholder="File path" size="30")"></td></tr>\
+									<tr><td><label>Date</label></td><td><input id="date'+index.toString()+' type="text" value="'+date+'" class="form-control" (placeholder="File path" size="30")"></td></tr>\
+									<tr><td><label>Event</label></td><td><input id="event'+index.toString()+' type="text" value="'+event+'" class="form-control" (placeholder="File path" size="30")"></td></tr>\
+									<tr><td><label>Description</label></td><td><input id="desc'+index.toString()+' type="text" value="'+desc+'" class="form-control" (placeholder="File path" size="30")"></td></tr>\
+									<tr><td><label>Location</label></td><td><input id="location'+index.toString()+' type="text" value="'+location+'" class="form-control" (placeholder="File path" size="30")"></td></tr>\
+									<tr><td><label>Counrty</label></td><td><input id="cc'+index.toString()+' type="text" value="'+cc+'" class="form-control" (placeholder="File path" size="30")"></td></tr>\
+									<tr><td><label>People</label></td><td><input id="people'+index.toString()+' type="text" value="'+people+'" class="form-control" (placeholder="File path" size="30")"></td></tr>\
+									<tr><td><label>Rating</label></td><td><input id="rating'+index.toString()+' type="text" value="'+rating+'" class="form-control" (placeholder="File path" size="30")"></td></tr>\
+								</table>\
+							</div>\
+						</div>\
+						'
+	var htmlString3 = '<div class="responsive">\
+						<div class="gallery">\
+						<a id="cell'+index.toString()+'">\
+							<img id="img'+index.toString()+'" src="data:image/jpg;base64,'+ "thumb64" +'" \
+						</a>\
+						</div>\
+						</div>'
+	var t = $("#main-mode").prop('checked')
+	if(  $("#main-mode").prop('checked')  ){
+		$('#'+elemID).append(htmlString2) 
+	}
+	else{
+		$('#'+elemID).append(htmlString1) 
+	}
+	//class="img-responsive"
+
+	galleryFiles.push(fpath);
 	//console.log("SUCCESS",index,json.filearray.length)
 	json.index++
 	resolve(json)
 	}catch(e){console.log(e);reject(e)}})}
-
-function addThumbs(json,error){return new Promise(function(resolve, reject){try{
-	var index = json.index;
-	var file = json.filearray[index];
-	var thumb64 = file[11]
-	$("#img"+index.toString()).attr('src', 'data:image/png;base64,'+thumb64)
-	json.index++
-	setTimeout(function() {
-		resolve(json)
-	}, 10);
 	
-	}catch(e){console.log(e);reject(e)}})}
 
-function addElements(json){return new Promise(function(resolve, reject){try{
+async function addElements(json){try{
 	jcopy = JSON.parse(JSON.stringify(json))
 	console.log("Number of Pictures Retrieved:",jcopy.filearray.length)
-	promiseWaterfall( jcopy, addElement ,jcopy.filearray.length)
-	.then(function(jcopy){
-		jcopy.index = 0; 
-		return jcopy;
-		})
-	.then( jcopy  => promiseWaterfall( jcopy, addThumbs ,jcopy.filearray.length))
-	.then(	resolve,	reject)
-	}catch(e){console.log(e);reject(e)}})}
-	
-function promiseWaterfall(initObj,promiseFn,count){return new Promise(function(resolve,reject){try {
-	var start = (new Date()).getTime()
-	var promiseArray = [];
-	for (var i = 0; i < count; i++) { promiseArray.push(promiseFn)}
-	promiseArray.reduce(function(preFn,curFn,index,array){
-		return(preFn.then(curFn))
-		},new Promise(function(resolve, reject){resolve(initObj)})
-		)
-	//.then(function(res,rej){		$('#status').val("complete");		})
-	.then(resolve,reject)
-	}catch(err){console.log("LOAD CSV ERROR:",err);reject(err.toString())}})}
+	// Add pictures
+	for(let x = 0 ; x < jcopy.filearray.length; x++){
+		json.index = x;
+		await addElement(json)
+	}
+	// Add Thumbs
+	for(let index = 0 ; index < jcopy.filearray.length; index++){
+		var file = json.filearray[index];
+		var thumb64 = file[11]
+		$("#img"+index.toString()).attr('src', 'data:image/png;base64,'+thumb64)
+		await new Promise((res,rej)=>{  setTimeout(()=>{res(true)},10)  })  // Slow down thumb generation
+	}
+	return true;
+	}catch(e){console.log(e);reject(e)}}
 	
 function elemClear(elemId){
 	var myNode = document.getElementById(elemId);
@@ -355,8 +372,8 @@ function elemClear(elemId){
 	}
 	
 function adjust(img){
-	var MAX_WIDTH = 640;
-	var MAX_HEIGHT = 480;
+	var MAX_WIDTH = 320;
+	var MAX_HEIGHT = 240;
 	var width = img.width;
 	var height = img.height;
 	if (width > height) {
