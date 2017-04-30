@@ -1,9 +1,9 @@
-div.gallery {
-    border: 1px solid #ccc;
+.pic-select{
+  border: 10px solid red;
 }
 
-div.gallery:hover {
-    border: 1px solid #777;
+* {
+    box-sizing: border-box;
 }
 
 div.gallery img {
@@ -11,31 +11,62 @@ div.gallery img {
     height: auto;
 }
 
-div.desc {
-    padding: 15px;
+div.gallery-edit img {
+    width: auto;
+    height: auto;
+}
+
+div.gallery-edit  {
     text-align: center;
 }
 
-* {
-    box-sizing: border-box;
-}
-
 .responsive {
-    padding: 0 6px;
+    padding: 0 2px;
     float: left;
     width: 24.99999%;
+    margin: 2px 0;
 }
+
+.responsive-edit {
+    padding: 0 2px;
+    float: left;
+    width: 49.99999%;
+    margin: 2px 0;
+}
+
+table { margin: auto; }
+
 
 @media only screen and (max-width: 1400px){
     .responsive {
+        width: 32.99999%;
+        margin: 2px 0;
+    }
+    .responsive-edit {
         width: 49.99999%;
-        margin: 6px 0;
+        margin: 2px 0;
+    }
+}
+
+@media only screen and (max-width: 1000px){
+    .responsive {
+        width: 49.99999%;
+        margin: 2px 0;
+    }
+    .responsive-edit {
+        width: 100%;
+        margin: auto;
     }
 }
 
 @media only screen and (max-width: 700px){
     .responsive {
         width: 100%;
+        margin: 2px 0;
+    }
+    .responsive-edit {
+        width: 100%;
+        margin: 2px 0;
     }
 }
 

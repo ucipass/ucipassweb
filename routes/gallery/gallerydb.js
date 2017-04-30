@@ -9,7 +9,7 @@ var File = require("ucipass-file")
 var Directory = require("ucipass-directory")
 
 var sql = require('./lib/lib_sqlite.js')
-var JPG = require('./jpg.js')
+var JPG = require('ucipass-jpg')
 var JSONData = require('./lib/jsondata.js');
 
 var logger = require('winston');
@@ -22,7 +22,7 @@ class GalleryDB {
 		this.galleryDir		=	path.normalize(path.resolve(galleryDir))
 		this.dbname 		= 	path.normalize(path.resolve(dbname))
 		this.filelist		=	null
-		this.allowedFns		= ["getselect2","getimages"]	// functions allowed to be called via ioData remotely
+		this.allowedFns		= ["getselect2","imagesSelect","imagesUpdate"]	// functions allowed to be called via ioData remotely
 	}
 	async init(){
 		var db = new File(this.dbname)
@@ -31,7 +31,7 @@ class GalleryDB {
 			return this
 		}
 		var json = {dbname:this.dbname}
-		await Promise.resolve(json)
+		return Promise.resolve(json)
 		.then(function(json){ log.info("Database File NOT found creating new one!",json.dbname) ; return json})
 		.then(sql.open(json))
 		.then(sql.stm("CREATE TABLE IF NOT EXISTS files (\
@@ -59,8 +59,8 @@ class GalleryDB {
 		.then(sql.write)
 		.then(sql.loadCSV(  path.join( path.dirname(json.dbname),"locations.csv") ,"locations"))
 		.then(sql.loadCSV(  path.join( path.dirname(json.dbname),"countries.csv") ,"countries"))
+		.then(sql.close)
 		.then(function(json){ log.info("Created tables: files,images,thumbs,locations,countries.",json.dbname) ; return json})
-		return this;
 	}
 	async getNewFiles(){
 		var dbname = this.dbname;
@@ -81,47 +81,52 @@ class GalleryDB {
 		})
 
 		// Process new directory files
-		for( var keyFile of dirFiles.keys()){
+		var newFiles = []
+		for( let keyFile of dirFiles.keys()){
 			if(!sqlFiles.has(keyFile)){
-				var file = dirFiles.get(keyFile)
-				var jpg = new JPG(file.fpath)
-				log.info("Processing new file:",path.relative(this.galleryDir,jpg.fpath))
-				await jpg.stat()
-				var fpath = path.relative(this.galleryDir,jpg.fpath)
-				var hash = (await jpg.hashfn(true)).hash
-				var size = jpg.size.toString()
-				var ctime = jpg.ctime.toISOString()
-				var mtime = jpg.mtime.toISOString()
-				var sqlFile = [fpath,hash,size,ctime,mtime,"1"]
-				await sql.sInsertRow(this.dbname,"files",filesColumns,sqlFile)
-				if (path.extname(jpg.fpath).toLowerCase() == '.jpg') {
-					var existSqlImageRow = await sql.sReadTable(dbname,"images",["hash"], [[true,["hash"],"IS",hash]])
-					if(existSqlImageRow.table.length < 1){
-						await jpg.getExif()
-						delete jpg.exif.exifData
-						var gps = await jpg.getLocation(this.dbname)
-						var idate = moment( jpg.exif.DateTimeOriginal ,"YYYY:MM:DD HH:mm:ss").toISOString()
-						var event = jpg.fpath.split(path.sep)[jpg.fpath.split(path.sep).length-2]
-						var desc = jpg.exif.ImageDescription ? jpg.exif.ImageDescription :  jpg.fpath
-						var location = gps.location ? gps.location : null
-						var cc = gps.cc ? gps.cc : null
-						var people = null
-						var rating = "0"
-						var att = JSON.stringify( { exif:jpg.exif } )
-						// Write data to SQL
-						var imagesColumns = ["hash","idate","event","desc","location","cc","people","rating","att"]
-						var imagesRow = [hash,idate,event,desc,location,cc,people,rating,att]
-						await sql.sInsertRow(dbname,"images",imagesColumns,imagesRow)
-					}
-					var existingThumbRow = await sql.sReadTable(dbname,"thumbs",["hash"], [[true,["hash"],"IS",hash]])
-					if (existingThumbRow.table.length < 1){
-						var thumb = (await jpg.getThumb()).thumb
-						var newRow = [hash,thumb]
-						var columns = ["hash","thumb"]
-						await sql.sInsertRow(dbname,"thumbs",columns,newRow)
-					}
+				newFiles.push(dirFiles.get(keyFile))
+			}
+		}
+		for( let i=0; i< newFiles.length; i++){
+			var file = newFiles[i]
+			var jpg = new JPG(file.fpath)
+			log.info("Processing new file:",i,"of",newFiles.length,":",path.relative(this.galleryDir,jpg.fpath))
+			await jpg.stat()
+			var fpath = path.relative(this.galleryDir,jpg.fpath)
+			var hash = (await jpg.hashfn(true)).hash
+			var size = jpg.size.toString()
+			var ctime = jpg.ctime.toISOString()
+			var mtime = jpg.mtime.toISOString()
+			var sqlFile = [fpath,hash,size,ctime,mtime,"1"]
+			await sql.sInsertRow(this.dbname,"files",filesColumns,sqlFile)
+			if (path.extname(jpg.fpath).toLowerCase() == '.jpg') {
+				var existSqlImageRow = await sql.sReadTable(dbname,"images",["hash"], [[true,["hash"],"IS",hash]])
+				if(existSqlImageRow.table.length < 1){
+					await jpg.getExif()
+					delete jpg.exif
+					var gps = await this.getLocation(this.dbname)
+					var idate = moment( jpg.DateTimeOriginal ,"YYYY:MM:DD HH:mm:ss").toISOString()
+					var event = jpg.XPSubject ? jpg.XPSubject : jpg.fpath.split(path.sep)[jpg.fpath.split(path.sep).length-2]
+					var desc = jpg.ImageDescription ? jpg.ImageDescription :  jpg.fpath
+					var location = gps.location
+					var cc = gps.cc
+					var people = jpg.XPKeywords
+					var rating = jpg.Rating 
+					var att = jpg.XPComment ? jpg.XPComment : JSON.stringify( { location:location, cc:cc, lat:jpg.lat, lon:jpg.lon } )
+					// Write data to SQL
+					var imagesColumns = ["hash","idate","event","desc","location","cc","people","rating","att"]
+					var imagesRow = [hash,idate,event,desc,location,cc,people,rating,att]
+					await sql.sInsertRow(dbname,"images",imagesColumns,imagesRow)
+				}
+				var existingThumbRow = await sql.sReadTable(dbname,"thumbs",["hash"], [[true,["hash"],"IS",hash]])
+				if (existingThumbRow.table.length < 1){
+					var thumb = (await jpg.getThumb()).thumb
+					var newRow = [hash,thumb]
+					var columns = ["hash","thumb"]
+					await sql.sInsertRow(dbname,"thumbs",columns,newRow)
 				}
 			}
+
 		}
 		// must pull DB one more time since sql files content changed potentially
 		sqlFilesRaw = (await sql.sReadTable(dbname,"files")).table
@@ -143,52 +148,77 @@ class GalleryDB {
 		}
 
 		return this;
-	}	
-	validFn(fn){
-		if ( this.allowedFns.indexOf(fn) > -1 ){
-			return true
-		}
-		else{
-			return false
-		}
 	}
+	async getLocation(dbname){try{
+		var jpg = this;
+		if ( !jpg || !jpg.exif || !jpg.exif.gps|| !jpg.exif.gps.lon || !jpg.exif.gps.lat  ) {
+			log.silly("LOCATION: No location info found in Exif")
+			jpg.geo = {}
+			return Promise.resolve(jpg.geo) ; 
+		}
+		var lat = jpg.exif.gps.lat ;
+		var lon = jpg.exif.gps.lon ;
+		var hash = jpg.hash ? jpg.hash : await jpg.hashfn().hash;
+		var json = {dbname:dbname}
+		json.sqlstm = "SELECT * FROM locations WHERE "+	" lon < " + (lon+2).toString()+	" AND lon > " + (lon-2).toString()+	" AND lat < " + (lat+2).toString()+	" AND lat > " + (lat-2).toString() ;			
+		return sql.open(json)
+		.then(sql.stm(json.sqlstm))
+		.then(sql.read)
+		.then(function(json){
+			var shortestRow = []
+			var distance = 10000000 ;
+			log.silly("LOCATION: MATCHES", json.results[json.results.length-1].table.length)
+			var potGPS=json.results.pop().table.forEach(function(item,index){
+				var from = {latitude: parseFloat(jpg.exif.gps.lat), longitude:  parseFloat(jpg.exif.gps.lon)}
+				var to = {latitude:  parseFloat(item[0]), longitude: parseFloat(item[1]) }
+				var cDistance = geolib.getDistance(from,to)
+				//log.silly(item);
+				//log.silly("LOCATION: Distance",distance,cDistance,from,to);
+				if (cDistance < distance) { distance = cDistance ; shortestRow=item}
+				})
+			var lat = shortestRow[0]
+			var lon = shortestRow[1]
+			var location = shortestRow[2]
+			var cc = shortestRow[3]
+			var geo = { location:location,cc:cc,lat:lat,lon:lon}
+			log.debug("LOCATION:",geo)
+			return(geo)
+			})
+
+	}catch(err){ log.error(err); return Promise.reject(err) }}
 	async getselect2(ioData){
+		var json = {dbname:this.dbname}
+		await sql.open(json)
+		json.sqlstm = "SELECT iso, country FROM countries"
+		await sql.read(json)
+		var countries = json.results.pop().table.map((item)=>{ return {id: item[0], text: item[1] } 	})
+		json.sqlstm = "SELECT DISTINCT event from images"
+		await sql.read(json)
+		var events = json.results.pop().table
+		await sql.close(json)
 		ioData.att().countries = [{id:"US",text:"United States"},{id:"HU",text:"Hungary"}]
 		ioData.att().event = ["2016-01-Naperville","1999-01-Hungary"]
+		ioData.att().countries = countries
+		ioData.att().event = events
 		return ioData;
 	}	
-	async getimages(ioData){
+	async imagesSelect(ioData){
 
-		var start = true;
-		var limit = ioData.att().limit
-		var offset = ioData.att().offset
-		
-		var hash = ioData.att().hash
-		var fpath = ioData.att().fpath
-		var fname = ioData.att().fname
-		var size = ioData.att().fsize
-		var frdate = ioData.att().frdate
-		var todate = ioData.att().todate
-		var event = ioData.att().event
-		var desc = ioData.att().desc
-		var location = ioData.att().location
-		var cc = ioData.att().cc
-		var people = ioData.att().people
-		var rating = ioData.att().rating
+		var f = ioData.att().filter
 		
 		var where = ""
-		if (hash) where+= " AND images.hash LIKE '%"+hash+"%' "
-		if (fpath && fname) where+= " AND fpath LIKE '%"+fpath+"%' "
-		if (size) where+= " AND size LIKE '%"+size+"%' "
-		if (frdate) where+= " AND idate > '"+frdate+"' "
-		if (todate) where+= " AND idate < '"+todate+"' "
-		if (event) where+= " AND event LIKE '%"+event+"%' "
-		if (desc) where+= " AND desc LIKE '%"+desc+"%' "
-		if (location) where+= " AND location LIKE '%"+location+"%' "
-		if (cc) where+= " AND cc LIKE '%"+cc+"%' "
-		if (people) where+= " AND people LIKE '%"+people+"%' "
-		if (rating) where+= " AND rating IS '"+rating+"' "
-		if (ioData.id() != "admin") where+= " AND rating IS NOT 1 AND rating IS NOT 0 "
+		if (f.hash) where+= " AND images.hash LIKE '%"+f.hash+"%' "
+		if (f.fpath) where+= " AND fpath LIKE '%"+f.fpath+"%' "
+		if (f.size) where+= " AND size LIKE '%"+f.size+"%' "
+		if (f.frdate) where+= " AND idate > '"+f.frdate+"' "
+		if (f.todate) where+= " AND idate < '"+f.todate+"' "
+		if (f.event) where+= " AND event LIKE '%"+f.event+"%' "
+		if (f.desc) where+= " AND desc LIKE '%"+f.desc+"%' "
+		if (f.location) where+= " AND location LIKE '%"+f.location+"%' "
+		if (f.cc) where+= " AND cc LIKE '%"+f.cc+"%' "
+		if (f.people) where+= " AND people LIKE '%"+f.people+"%' "
+		if (f.rating) where+= " AND rating IS '"+f.rating+"' "
+		if (ioData.id() != "admin") where+= " AND rating IS NOT 1 "
 		
 		var presqlstm = "\
 			SELECT * FROM (\
@@ -203,7 +233,7 @@ class GalleryDB {
 			LEFT JOIN thumbs on joinedTable.hash = thumbs.hash"
 			
 		var sqlstm_count = " SELECT count(*) FROM ( "+presqlstm+" )"
-		var sqlstm = presqlstm+" LIMIT " + limit +  ( offset ? (" OFFSET " + offset) : "" )
+		var sqlstm = presqlstm+" LIMIT " + f.limit +  ( f.offset ? (" OFFSET " + f.offset) : "" )
 		log.debug("FILES - SQL STM:", sqlstm.replace(/\t/g,""))
 		log.debug("receive: Start",Date())
 		var result = await Promise.resolve({dbname:this.dbname, dbro:0,	dblog:0})
@@ -218,9 +248,9 @@ class GalleryDB {
 			log.debug("receive: End",Date())
 			json.results.pop();
 			var result = json.results.pop();
-			var count = json.results.pop().table[0][0];
+			var totalCount = json.results.pop().table[0][0];
 			ioData.att().cmd += "-success";
-			ioData.att().images = {columns: result.columns, table: result.table, count: count , offset:offset}
+			ioData.att().images = {columns: result.columns, table: result.table, totalCount:totalCount}
 			return (ioData);
 		}catch(e){console.log(e)}})
 		.catch(function(error){
@@ -230,7 +260,57 @@ class GalleryDB {
 		})
 		return result
 	}
+	async imagesUpdate(ioData){
 
+		var newRows = ioData.att().newRows
+		
+		var sqlstmArray = []
+		for(let i = 0; i < newRows.length; i++){
+			let file = newRows[i];
+			let sqlstm = "UPDATE images SET "
+			for(let column in file){
+				sqlstm += column+" = '"+file[column]+"' ,"
+			}
+			sqlstm = sqlstm.slice(0, -1); //chop off the last comma
+			sqlstm += " WHERE hash IS '"+file.hash+"' "
+			sqlstmArray.push(sqlstm)
+		}
+
+		var json = {dbname:this.dbname}
+		await sql.open(json)
+		for(let i = 0 ; i<sqlstmArray.length ; i++){
+			log.debug("FILES - SQL STM:", sqlstmArray[i])
+			log.silly("receive: Start",Date())
+			json.sqlstm = sqlstmArray[i]
+			await sql.write(json)
+		}
+		await sql.close(json)
+		return ioData;
+	}
+
+
+
+	convertGPS(days, minutes, seconds, direction) {
+		try{
+			direction.toUpperCase();
+			var dd = days + minutes/60 + seconds/(60*60);
+			if (direction == "S" || direction == "W") {	dd = dd*-1;	} // Don't do anything for N or E
+			return dd.toFixed(7);
+		}
+		catch(err){
+			log.error("ConvertGPS Error: Incorrect Format")
+			throw("ConvertGPS Error: Incorrect Format")
+			return 0;
+		}
+	}
+	validFn(fn){
+		if ( this.allowedFns.indexOf(fn) > -1 ){
+			return true
+		}
+		else{
+			return false
+		}
+	}
 
 
 
