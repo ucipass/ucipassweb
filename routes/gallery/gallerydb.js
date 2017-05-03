@@ -12,9 +12,16 @@ var sql = require('./lib/lib_sqlite.js')
 var JPG = require('ucipass-jpg')
 var JSONData = require('./lib/jsondata.js');
 
+
+var logDirectory = path.join(__dirname, 'log')
+fs.existsSync(logDirectory) || fs.mkdirSync(logDirectory)
+var logFile =  path.join(logDirectory, 'gallery.log')
 var logger = require('winston');
 logger.emitErrs = true;
-logger.loggers.add('GALLERYDB', { console: { level: 'info.', label: "GALLERYDB", handleExceptions: true, json: false, colorize: true}});
+logger.loggers.add('GALLERYDB', { 
+	console: { level: 'info', label: "GALLERYDB", handleExceptions: true, json: false, colorize: true},
+	file:    { level: 'error', label: "GALLERYDB", filename: logFile, maxsize: 5242880, maxFiles: 5, handleExceptions: true, json: true, colorize: false }
+});
 var log = logger.loggers.get('GALLERYDB');
 
 class GalleryDB {
