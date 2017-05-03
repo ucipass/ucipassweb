@@ -1,3 +1,4 @@
 node_modules/
 log/
 test/gallery/realgallery.db
+routes/gallery/files

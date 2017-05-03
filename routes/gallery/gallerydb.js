@@ -14,7 +14,7 @@ var JSONData = require('./lib/jsondata.js');
 
 var logger = require('winston');
 logger.emitErrs = true;
-logger.loggers.add('GALLERYDB', { console: { level: 'info', label: "GALLERYDB", handleExceptions: true, json: false, colorize: true}});
+logger.loggers.add('GALLERYDB', { console: { level: 'info.', label: "GALLERYDB", handleExceptions: true, json: false, colorize: true}});
 var log = logger.loggers.get('GALLERYDB');
 
 class GalleryDB {
@@ -136,8 +136,8 @@ class GalleryDB {
 			}
 
 		}catch(err){ 
-			log.error(err); 
-			return Promise.reject(err) 
+			log.error(newFiles[i],err); 
+			continue;
 		}}
 		// must pull DB one more time since sql files content changed potentially
 		sqlFilesRaw = (await sql.sReadTable(dbname,"files")).table
