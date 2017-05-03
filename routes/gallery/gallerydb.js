@@ -100,7 +100,7 @@ class GalleryDB {
 		for( let i=0; i< newFiles.length; i++){try{
 			var file = newFiles[i]
 			var jpg = new JPG(file.fpath)
-			log.info("Processing new file:",i,"of",newFiles.length,":",path.relative(this.galleryDir,jpg.fpath))
+			log.info("Processing new file:",i+1,"of",newFiles.length,":",path.relative(this.galleryDir,jpg.fpath))
 			await jpg.stat()
 			var fpath = path.relative(this.galleryDir,jpg.fpath)
 			var hash = (await jpg.hashfn(true)).hash
