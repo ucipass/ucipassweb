@@ -12,9 +12,16 @@ var sql = require('./lib/lib_sqlite.js')
 var JPG = require('ucipass-jpg')
 var JSONData = require('./lib/jsondata.js');
 
+
+var logDirectory = path.join(__dirname, 'log')
+fs.existsSync(logDirectory) || fs.mkdirSync(logDirectory)
+var logFile =  path.join(logDirectory, 'gallery.log')
 var logger = require('winston');
 logger.emitErrs = true;
-logger.loggers.add('GALLERYDB', { console: { level: 'debug', label: "GALLERYDB", handleExceptions: true, json: false, colorize: true}});
+logger.loggers.add('GALLERYDB', { 
+	console: { level: 'info', label: "GALLERYDB", handleExceptions: true, json: false, colorize: true},
+	file:    { level: 'error', label: "GALLERYDB", filename: logFile, maxsize: 5242880, maxFiles: 5, handleExceptions: true, json: true, colorize: false }
+});
 var log = logger.loggers.get('GALLERYDB');
 
 class GalleryDB {
@@ -68,13 +75,16 @@ class GalleryDB {
 		var filesColumns = ["fpath","hash","size","ctime","mtime","active"]
 		
 		//Get all files and Sql files data
+		log.debug("Get all fiels and sql files")
 		var dirFilesRaw = await dir.filelist()
 		var sqlFilesRaw = (await sql.sReadTable(dbname,"files")).table
 		
+		log.debug("Map obj. to store keyed directory files to eliminate duplicates")
 		var dirFiles = new Map()	// Map obj. to store keyed directory files to eliminate duplicates
 		dirFilesRaw.forEach((file,index)=>{
 			dirFiles.set(   path.relative(this.galleryDir, file.fpath)   +file.size.toString()+file.mtime.toISOString(),file)
 		})
+		log.debug("Map obj. to store keyed sql files to eliminate duplicates")
 		var sqlFiles = new Map()	// Map obj. to store keyed sql files to eliminate duplicates
 		sqlFilesRaw.forEach((file,index)=>{
 			sqlFiles.set(   file[0]   +file[2]+file[4].toString(),file)
@@ -87,10 +97,10 @@ class GalleryDB {
 				newFiles.push(dirFiles.get(keyFile))
 			}
 		}
-		for( let i=0; i< newFiles.length; i++){
+		for( let i=0; i< newFiles.length; i++){try{
 			var file = newFiles[i]
 			var jpg = new JPG(file.fpath)
-			log.info("Processing new file:",i,"of",newFiles.length,":",path.relative(this.galleryDir,jpg.fpath))
+			log.info("Processing new file:",i+1,"of",newFiles.length,":",path.relative(this.galleryDir,jpg.fpath))
 			await jpg.stat()
 			var fpath = path.relative(this.galleryDir,jpg.fpath)
 			var hash = (await jpg.hashfn(true)).hash
@@ -98,8 +108,10 @@ class GalleryDB {
 			var ctime = jpg.ctime.toISOString()
 			var mtime = jpg.mtime.toISOString()
 			var sqlFile = [fpath,hash,size,ctime,mtime,"1"]
+			log.debug("Before inserting file into files table")
 			await sql.sInsertRow(this.dbname,"files",filesColumns,sqlFile)
 			if (path.extname(jpg.fpath).toLowerCase() == '.jpg') {
+				log.debug("Reading Existing images sql table")
 				var existSqlImageRow = await sql.sReadTable(dbname,"images",["hash"], [[true,["hash"],"IS",hash]])
 				if(existSqlImageRow.table.length < 1){
 					await jpg.getExif()
@@ -107,27 +119,33 @@ class GalleryDB {
 					var gps = await this.getLocation(this.dbname)
 					var idate = moment( jpg.DateTimeOriginal ,"YYYY:MM:DD HH:mm:ss").toISOString()
 					var event = jpg.XPSubject ? jpg.XPSubject : jpg.fpath.split(path.sep)[jpg.fpath.split(path.sep).length-2]
-					var desc = jpg.ImageDescription ? jpg.ImageDescription :  jpg.fpath
+					log.silly("ImageDescription",jpg.ImageDescription,"Path",jpg.fpath)
+					var desc = jpg.ImageDescription ? jpg.ImageDescription.trim() :  jpg.fpath
 					var location = gps.location
 					var cc = gps.cc
-					var people = jpg.XPKeywords
+					log.silly("XPKeywords",jpg.XPKeywords,"Path",jpg.fpath)
+					var people = jpg.XPKeywords? jpg.XPKeywords.replace(/[^\x1E-\x7F]/g, "") : null 	
 					var rating = jpg.Rating 
 					var att = jpg.XPComment ? jpg.XPComment : JSON.stringify( { location:location, cc:cc, lat:jpg.lat, lon:jpg.lon } )
 					// Write data to SQL
 					var imagesColumns = ["hash","idate","event","desc","location","cc","people","rating","att"]
 					var imagesRow = [hash,idate,event,desc,location,cc,people,rating,att]
+					log.debug("Befire inserting images sql table")
 					await sql.sInsertRow(dbname,"images",imagesColumns,imagesRow)
 				}
 				var existingThumbRow = await sql.sReadTable(dbname,"thumbs",["hash"], [[true,["hash"],"IS",hash]])
 				if (existingThumbRow.table.length < 1){
-					var thumb = (await jpg.getThumb()).thumb
+					var thumb = (await jpg.getThumb(50)).thumb
 					var newRow = [hash,thumb]
 					var columns = ["hash","thumb"]
 					await sql.sInsertRow(dbname,"thumbs",columns,newRow)
 				}
 			}
 
-		}
+		}catch(err){ 
+			log.error(newFiles[i],err); 
+			continue;
+		}}
 		// must pull DB one more time since sql files content changed potentially
 		sqlFilesRaw = (await sql.sReadTable(dbname,"files")).table
 		sqlFiles = new Map()	// Map obj. to store keyed sql files to eliminate duplicates
