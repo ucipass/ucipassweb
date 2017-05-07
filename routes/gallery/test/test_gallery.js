@@ -7,8 +7,12 @@ var should = require('chai').should();
 var sql = require('../lib/lib_sqlite.js')
 var File = require("ucipass-file")
 var Gallery = require("../gallerydb.js")
+var gallery = require("../gallery.js")
 var JPG = require('ucipass-jpg')
-
+var request = require("supertest")
+var JSONData = require(path.join(__dirname,"../../../bin","jsondata.js"))
+var agent = request.agent("http://localhost:3000")
+var app = require("express")()
 
 describe('Gallery Unit Test', function(){
 
@@ -192,4 +196,52 @@ describe('Gallery Unit Test', function(){
         return true
     });
 
+})
+
+describe.only('Web Server Test', function(){
+
+    before("Setup",()=>{
+        var bodyParser = require('body-parser');
+        var server = require('http').createServer(app);
+        server.listen(3000, function () {
+            console.log('Node JS Test listening on port 3000!');
+        });
+        app.use( bodyParser.json() );
+        app.use(bodyParser.urlencoded({
+            extended: true
+        }));
+        app.get("/",(req,res)=>{
+            res.send("Hello!")
+        })
+        app.post("/",gallery)
+        
+    })
+
+    it("Root HTTP get", function(done){
+        agent
+        //.get('/')
+        //.expect(302)
+        .get('/')
+        .expect(200)
+        .end(function(err, res) {
+            if (err) {
+                throw err;
+            }
+            done()
+        })
+    })
+    it("Gallery HTTP post", function(done){
+        let ioData = new JSONData("admin","gallery",{cmd:"getselect2"})
+        ioData = ioData.getjson()
+        agent
+        .post('/')
+        .send(ioData)
+        .expect(200)
+        .end(function(err, res) {
+            if (err) {
+                throw err;
+            }
+            done()
+        })
+    })
 })

@@ -22,7 +22,7 @@ router.get("/", function (req, res) {
 	res.render(render,{title:"gallery" ,user:req.user?req.user.id:null ,message: "gallery",redir:req.query.redir });
 });
 router.post("/", function (req, res) {
-	if (req.body.data){
+	if (req.body && req.body.data){
 		var ioData = new JSONData();
 		ioData.setjson(req.body);
 		log.info("IO: RECV:",ioData.id(),ioData.type(),ioData.att().cmd);
@@ -54,6 +54,9 @@ router.post("/", function (req, res) {
 router.use(express.static(path.join(__dirname, 'public')));
 router.use(express.static(path.join(__dirname, 'files')));
 
+router.post("*", function (req, res) {
+	console.log("NO MATCH", req.url,req,method)
+})
 module.exports = router
 
 
