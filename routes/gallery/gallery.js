@@ -6,6 +6,7 @@ var GalleryDB = require("./gallerydb.js")
 var logger = require('winston');
 
 
+
 logger.emitErrs = true;
 logger.loggers.add('GALLERY', { console: { level: 'info', label: "GALLERY", handleExceptions: true, json: false, colorize: true}});
 var log = logger.loggers.get('GALLERY');
